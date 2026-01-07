@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ru" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ 'Вход' if mode == 'login' else 'Регистрация' }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&display=swap" rel="stylesheet">
+    <link rel="icon" href="/static/logo.png" type="image/png">
+    <style>
+        html { background-color: #121212; }
+        body { display: flex; align-items: center; justify-content: center; height: 100vh; }
+        .auth-card { background: #1e1e1e; padding: 40px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); width: 100%; max-width: 400px; color: #e0e0e0; }
+        .google-btn { background-color: #db4437; color: white; }
+        .google-btn:hover { background-color: #c1351d; color: white; }
+        
+        /* Темная тема */
+        html { background-color: #121212; }
+        body { color: #e0e0e0; }
+        
+        /* Логотип слева сверху */
+        .brand-logo {
+            position: absolute; top: 20px; left: 20px; z-index: 100;
+            font-weight: 800; font-size: 1.5rem; text-decoration: none; color: #333;
+            font-family: 'Montserrat', sans-serif; display: flex; align-items: center; gap: 10px;
+        }
+        .brand-logo img { height: 40px; width: auto; }
+        .brand-logo { color: #e0e0e0; }
+    </style>
+</head>
+<body>
+
+<!-- Логотип слева сверху -->
+<div class="brand-logo">
+    <img src="/static/logo.png" alt="Logo" onerror="this.style.display='none'">
+    Video Downloader
+</div>
+
+<div class="auth-card">
+    <h4 class="text-center mb-4 text-muted" id="authTitle">{{ 'Вход в аккаунт' if mode == 'login' else 'Регистрация' }}</h4>
+    
+    <div class="mb-3">
+        <label class="form-label" id="lblUsername">Имя пользователя</label>
+        <input type="text" id="username" class="form-control">
+    </div>
+    <div class="mb-3">
+        <label class="form-label" id="lblPassword">Пароль</label>
+        <div class="position-relative">
+            <input type="password" id="password" class="form-control pe-5">
+            <button type="button" onclick="togglePassword()" id="toggleBtn" class="btn position-absolute top-50 end-0 translate-middle-y border-0 bg-transparent text-muted me-1" style="z-index: 5;" title="Показать пароль"><i class="bi bi-eye-fill"></i></button>
+        </div>
+    </div>
+
+    {% if mode == 'register' %}
+    <div class="mb-3">
+        <label class="form-label" id="lblEmail">Email</label>
+        <input type="email" id="email" class="form-control" placeholder="name@gmail.com">
+    </div>
+    {% endif %}
+
+    <button class="btn btn-primary w-100 mb-3" id="btnSubmit">
+        {{ 'Войти' if mode == 'login' else 'Зарегистрироваться' }}
+    </button>
+
+    <div class="text-center mb-3 text-muted" id="txtOr">- ИЛИ -</div>
+
+    <a href="/login/google" class="btn google-btn w-100 mb-3">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-google me-2" viewBox="0 0 16 16">
+            <path d="M15.545 6.558a9.42 9.42 0 0 1 .139 1.626c0 2.434-.87 4.492-2.384 5.885h.002C11.978 15.292 10.158 16 8 16A8 8 0 1 1 8 0a7.689 7.689 0 0 1 5.352 2.082l-2.284 2.284A4.347 4.347 0 0 0 8 3.166c-2.087 0-3.86 1.408-4.492 3.304a4.792 4.792 0 0 0 0 3.063h.003c.635 1.893 2.405 3.301 4.492 3.301 1.078 0 2.004-.276 2.722-.764h-.003a3.702 3.702 0 0 0 1.599-2.431H8v-3.08h7.545z"/>
+        </svg>
+        <span id="btnGoogle">{{ 'Войти через Google' if mode == 'login' else 'Регистрация через Google' }}</span>
+    </a>
+
+    <div class="text-center mt-3">
+        {% if mode == 'login' %}
+            <a href="/register_page" id="linkSwitch">Нет аккаунта? Зарегистрироваться</a>
+        {% else %}
+            <a href="/login_page" id="linkSwitch">Есть аккаунт? Войти</a>
+        {% endif %}
+    </div>
+    
+    <!-- Ссылки внизу -->
+    <div class="text-center mt-4 small">
+        <a href="/about" class="text-muted mx-2" id="footerAbout">О нас</a>
+        <a href="/privacy" class="text-muted mx-2" id="footerPrivacy">Конфиденциальность</a>
+    </div>
+</div>
+
+<script>
+    // --- ПЕРЕВОД ---
+    const TRANSLATIONS = {
+        ru: {
+            loginTitle: 'Вход в аккаунт', regTitle: 'Регистрация',
+            user: 'Имя пользователя', pass: 'Пароль', email: 'Email',
+            btnLogin: 'Войти', btnReg: 'Зарегистрироваться',
+            or: '- ИЛИ -',
+            googleLogin: 'Войти через Google', googleReg: 'Регистрация через Google',
+            noAcc: 'Нет аккаунта? Зарегистрироваться', hasAcc: 'Есть аккаунт? Войти',
+            home: 'На главную', about: 'О нас', privacy: 'Конфиденциальность'
+        },
+        en: {
+            loginTitle: 'Login', regTitle: 'Registration',
+            user: 'Username', pass: 'Password', email: 'Email',
+            btnLogin: 'Login', btnReg: 'Register',
+            or: '- OR -',
+            googleLogin: 'Login with Google', googleReg: 'Register with Google',
+            noAcc: 'No account? Register', hasAcc: 'Have an account? Login',
+            home: 'Back to Home', about: 'About us', privacy: 'Privacy'
+        },
+        kg: {
+            loginTitle: 'Аккаунтка кирүү', regTitle: 'Каттоо',
+            user: 'Колдонуучу аты', pass: 'Сыр сөз', email: 'Email',
+            btnLogin: 'Кирүү', btnReg: 'Катталуу',
+            or: '- ЖЕ -',
+            googleLogin: 'Google аркылуу кирүү', googleReg: 'Google аркылуу катталуу',
+            noAcc: 'Аккаунтуңуз жокпу? Катталуу', hasAcc: 'Аккаунтуңуз барбы? Кирүү',
+            home: 'Башкы бетке', about: 'Биз жөнүндө', privacy: 'Купуялуулук'
+        }
+    };
+
+    const TranslationManager = {
+        getLang() {
+            try {
+                const saved = localStorage.getItem('appSettings');
+                return saved ? (JSON.parse(saved).lang || 'ru') : 'ru';
+            } catch (e) {
+                return 'ru';
+            }
+        },
+        apply() {
+            const lang = this.getLang();
+            const t = TRANSLATIONS[lang];
+            const mode = "{{ mode }}";
+
+            const setText = (id, text) => {
+                const el = document.getElementById(id);
+                if (el) el.innerText = text;
+            };
+
+            setText('authTitle', mode === 'login' ? t.loginTitle : t.regTitle);
+            setText('lblUsername', t.user);
+            setText('lblPassword', t.pass);
+            setText('lblEmail', t.email);
+            setText('btnSubmit', mode === 'login' ? t.btnLogin : t.btnReg);
+            setText('txtOr', t.or);
+            setText('btnGoogle', mode === 'login' ? t.googleLogin : t.googleReg);
+            setText('linkSwitch', mode === 'login' ? t.noAcc : t.hasAcc);
+            setText('footerAbout', t.about);
+            setText('footerPrivacy', t.privacy);
+        }
+    };
+
+    const AuthManager = {
+        mode: "{{ mode }}",
+        
+        init() {
+            document.getElementById('btnSubmit').addEventListener('click', () => this.submit());
+            // Обработка Enter в полях
+            document.querySelectorAll('input').forEach(input => {
+                input.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') this.submit();
+                });
+            });
+        },
+
+        async submit() {
+            const usernameEl = document.getElementById('username');
+            const passwordEl = document.getElementById('password');
+            const emailEl = document.getElementById('email');
+
+            const username = usernameEl ? usernameEl.value.trim() : '';
+            const password = passwordEl ? passwordEl.value : '';
+            let email = null;
+
+            if (!username || !password) return alert('Заполните все поля');
+
+            if (this.mode === 'register') {
+                email = emailEl ? emailEl.value.trim() : '';
+                if (!email) return alert('Введите Email');
+            }
+
+            const endpoint = this.mode === 'login' ? '/login' : '/register';
+            
+            try {
+                const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        // 'X-CSRFToken': '...' // TODO: Добавить токен при внедрении Flask-WTF
+                    },
+                    body: JSON.stringify({ username, password, email })
+                });
+                
+                const data = await res.json();
+                
+                if (data.success) {
+                    window.location.href = '/';
+                } else {
+                    alert(data.error || 'Ошибка сервера');
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Ошибка соединения');
+            }
+        }
+    };
+
+    function togglePassword() {
+        const input = document.getElementById('password');
+        const btn = document.getElementById('toggleBtn');
+        input.type = input.type === 'password' ? 'text' : 'password';
+        btn.innerHTML = input.type === 'password' ? '<i class="bi bi-eye-fill"></i>' : '<i class="bi bi-eye-slash-fill"></i>';
+    }
+
+    // Инициализация
+    TranslationManager.apply();
+    AuthManager.init();
+</script>
+
+<!-- Эффект снегопада -->
+<style>
+    #snow-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9999; transition: transform 0.1s ease-out; }
+    .snowflake { position: absolute; top: -10px; background: white; border-radius: 50%; user-select: none; pointer-events: none; animation: fall linear infinite; box-shadow: 0 0 5px rgba(255,255,255,0.8); }
+    @keyframes fall { to { transform: translateY(120vh); } }
+    .snow-pile { position: fixed; bottom: 0; left: 0; width: 100%; height: 15px; background: rgba(255, 255, 255, 0.6); filter: blur(8px); z-index: 9998; pointer-events: none; }
+</style>
+<div class="snow-pile"></div>
+<div id="snow-container"></div>
+<script>
+    const SnowEffect = {
+        enabled: true,
+        container: document.getElementById('snow-container'),
+        
+        init() {
+            try {
+                const saved = localStorage.getItem('appSettings');
+                if (saved) {
+                    const settings = JSON.parse(saved);
+                    this.enabled = settings.snow !== false; // По умолчанию true
+                }
+            } catch(e) {}
+
+            if (!this.enabled) {
+                if (this.container) this.container.style.display = 'none';
+                const pile = document.querySelector('.snow-pile');
+                if (pile) pile.style.display = 'none';
+                return;
+            }
+
+            for(let i=0; i<50; i++) this.createSnowflake(true);
+            setInterval(() => this.createSnowflake(false), 50);
+            
+            document.addEventListener('mousemove', (e) => {
+                const x = (e.clientX / window.innerWidth - 0.5) * 20;
+                const y = (e.clientY / window.innerHeight - 0.5) * 20;
+                this.container.style.transform = `translate(${x}px, ${y}px)`;
+            });
+        },
+
+        createSnowflake(isInit = false) {
+            if (!this.enabled || !this.container) return;
+            const snowflake = document.createElement('div');
+            snowflake.classList.add('snowflake');
+            snowflake.style.left = Math.random() * 100 + 'vw';
+            snowflake.style.opacity = Math.random() * 0.6 + 0.4;
+            const size = Math.random() * 6 + 3 + 'px';
+            snowflake.style.width = size;
+            snowflake.style.height = size;
+            
+            const duration = Math.random() * 5 + 5 + 's';
+            snowflake.style.animationDuration = duration;
+            if (isInit) snowflake.style.top = Math.random() * 100 + 'vh';
+
+            this.container.appendChild(snowflake);
+            setTimeout(() => snowflake.remove(), parseFloat(duration) * 1000);
+        }
+    };
+    SnowEffect.init();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ru" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Video Downloader{% endblock %}</title>
+    <!-- CSRF Token для JS запросов -->
+    <meta name="csrf-token" content="{{ csrf_token() if csrf_token else '' }}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&display=swap" rel="stylesheet">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" href="/static/logo.png" type="image/png">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        html { background-color: #121212; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding-top: 40px; min-height: 100vh; display: flex; flex-direction: column; color: #e0e0e0; }
+        
+        .content-wrapper { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; width: 100%; padding: 20px; }
+        .brand-logo { position: absolute; top: 20px; left: 20px; z-index: 100; font-weight: 800; font-size: 1.5rem; text-decoration: none; color: #e0e0e0; font-family: 'Montserrat', sans-serif; display: flex; align-items: center; gap: 10px; }
+        .brand-logo img { height: 40px; width: auto; }
+        .top-bar { position: absolute; top: 25px; right: 25px; z-index: 100; display: flex; align-items: center; gap: 15px; background: rgba(30, 30, 30, 0.6); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); padding: 8px 20px; border-radius: 50px; border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+        .top-bar .btn { border-radius: 20px; font-weight: 600; }
+        #snow-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9999; transition: transform 0.1s ease-out; }
+        .snowflake { position: absolute; top: -10px; background: white; border-radius: 50%; user-select: none; pointer-events: none; animation: fall linear infinite; box-shadow: 0 0 5px rgba(255,255,255,0.8); }
+        @keyframes fall { to { transform: translateY(120vh); } }
+        .snow-pile { position: fixed; bottom: 0; left: 0; width: 100%; height: 15px; background: rgba(255, 255, 255, 0.6); filter: blur(8px); z-index: 9998; pointer-events: none; }
+        
+        .freekassa-corner { position: fixed; bottom: 15px; left: 15px; z-index: 9000; opacity: 0.6; transition: all 0.3s ease; transform: scale(0.85); transform-origin: bottom left; }
+        .freekassa-corner:hover { opacity: 1; transform: scale(1); }
+        .form-switch .form-check-input { height: 1.5em; width: 2.5em; border-radius: 2em; background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e"); transition: background-position .15s ease-in-out, background-color .15s ease-in-out; cursor: pointer; }
+        .form-switch .form-check-input:checked { background-color: #34C759; border-color: #34C759; }
+        .form-switch .form-check-input:focus { box-shadow: none; }
+        
+        /* Кнопка обратной связи */
+        .feedback-corner { position: fixed; bottom: 30px; right: 30px; z-index: 9000; }
+        .feedback-btn {
+            width: 60px; height: 60px;
+            background-color: #ffc107; color: #000;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-size: 28px; text-decoration: none;
+            box-shadow: 0 4px 15px rgba(255, 193, 7, 0.4);
+            transition: transform 0.3s ease;
+            animation: pulse-yellow 2s infinite;
+        }
+        .feedback-btn:hover { transform: scale(1.1); color: #000; }
+        @keyframes pulse-yellow {
+            0% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.7); }
+            70% { box-shadow: 0 0 0 15px rgba(255, 193, 7, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0); }
+        }
+        
+        /* Анимация онлайн (зеленая пульсация) */
+        @keyframes pulse-green {
+            0% { box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(46, 204, 113, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(46, 204, 113, 0); }
+        }
+        @media (max-width: 768px) {
+            .brand-logo, .top-bar { position: static; display: flex; justify-content: center; width: 100%; margin-bottom: 15px; background: transparent; border: none; box-shadow: none; padding: 0; }
+            .content-wrapper { padding-top: 10px; }
+            .brand-logo { order: 1; }
+            .top-bar { order: 2; }
+            .main-card, .profile-card, .info-card, .feedback-card, .auth-card { order: 3; }
+        }
+    </style>
+    {% block head_extra %}{% endblock %}
+</head>
+<body>
+
+    <div class="content-wrapper container mb-5">
+        <!-- Название сайта слева -->
+        <a href="/" class="brand-logo">
+            <img src="/static/logo.png" alt="Logo" onerror="this.style.display='none'">
+            Video Downloader
+        </a>
+
+        <!-- Верхняя панель -->
+        <div class="top-bar">
+            <a href="/premium" class="btn btn-sm btn-warning text-dark fw-bold" style="background: linear-gradient(45deg, #FFD700, #FFC107); border: none; box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);"><i class="bi bi-gem"></i> Premium</a>
+            <button class="btn btn-sm btn-dark rounded-circle shadow-sm" style="width: 32px; height: 32px; padding: 0;" onclick="new bootstrap.Modal(document.getElementById('settingsModal')).show()" title="Настройки"><i class="bi bi-gear-fill"></i></button>
+            <div id="authSection" class="d-flex gap-2 align-items: center">
+                <!-- SSR: Рендеринг на сервере для быстрого отображения -->
+                {% if session.get('user_id') %}
+                    <div class="d-flex gap-2 me-3 align-items-center border-end pe-3 border-secondary">
+                        <button class="btn btn-sm btn-dark rounded-circle position-relative shadow-sm" style="width: 32px; height: 32px; padding: 0;" onclick="loadNotificationHistory()" title="Уведомления">
+                            <i class="bi bi-bell-fill"></i>
+                            <span id="notifBadge" class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle" style="display: none;"></span>
+                        </button>
+                        <button class="btn btn-sm btn-dark rounded-circle shadow-sm" style="width: 32px; height: 32px; padding: 0;" onclick="loadHistory()" title="История скачиваний"><i class="bi bi-folder2-open"></i></button>
+                        <a href="/logout" class="btn btn-sm btn-danger rounded-circle shadow-sm d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; padding: 0;" title="Выход"><i class="bi bi-box-arrow-right"></i></a>
+                    </div>
+                    <div class="d-flex flex-column align-items-center justify-content-center me-3" style="line-height: 1.1; height: 40px;">
+                        <a href="/profile" class="fw-bold text-decoration-none text-white small" style="text-shadow: 0 0 5px rgba(0,0,0,0.5); max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ session.get('username') }}</a>
+                    </div>
+                    <a href="/profile"><img src="{{ session.get('avatar_url') or 'https://via.placeholder.com/40' }}" alt="Avatar" class="rounded-circle border border-2 border-light" style="width: 40px; height: 40px; object-fit: cover; animation: pulse-green 2s infinite;"></a>
+                {% else %}
+                    <a href="/login_page" class="btn btn-sm btn-outline-primary">Вход</a>
+                    <a href="/register_page" class="btn btn-sm btn-primary">Регистрация</a>
+                {% endif %}
+            </div>
+        </div>
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- Подвал с ссылками -->
+    <div class="container text-center">
+        <div class="footer-links">
+            <a href="/about" id="footerAbout">О нас</a>
+            <a href="/privacy" id="footerPrivacy">Конфиденциальность</a>
+            <a href="/terms" id="footerTerms">Условия использования</a>
+        </div>
+        <div class="text-muted mt-2 small" id="footerCopyright">&copy; 2025 Video Downloader</div>
+    </div>
+
+    <!-- Сугроб -->
+    <div class="snow-pile"></div>
+
+    <!-- Баннер FreeKassa (Аккуратно в углу) -->
+    <div class="freekassa-corner">
+        <a href="https://freekassa.net" target="_blank" rel="noopener noreferrer">
+            <img src="https://cdn.freekassa.net/banners/big-dark-2.png" title="Прием платежей" style="height: 40px; width: auto; border-radius: 8px;">
+        </a>
+    </div>
+
+    <!-- Плавающая кнопка обратной связи -->
+    <div class="feedback-corner">
+        <a href="/feedback" class="feedback-btn" title="Обратная связь"><i class="bi bi-chat-dots-fill"></i></a>
+    </div>
+
+    <!-- Контейнер для снега (для параллакса) -->
+    <div id="snow-container"></div>
+
+    <!-- Модальное окно ХРАНИЛИЩЕ (ИСТОРИЯ) -->
+    <div class="modal fade" id="historyModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="historyModalTitle">📂 Мои скачанные видео</h5>
+                    <div class="ms-auto">
+                        <button class="btn btn-sm btn-outline-danger me-2" onclick="clearHistory()" title="Очистить историю"><i class="bi bi-trash"></i></button>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                </div>
+                <div class="modal-body">
+                    <div id="historyList" class="list-group">
+                        <div class="text-center text-muted">Загрузка...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно УВЕДОМЛЕНИЯ -->
+    <div class="modal fade" id="notificationHistoryModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="notifModalTitle">🔔 Уведомления</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="notificationList" class="list-group list-group-flush"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Контейнер для уведомлений (Toasts) -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1100;">
+      <div id="liveToast" class="toast align-items-center border-0" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+          <div class="toast-body" id="toastBody"></div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Модальное окно НАСТРОЙКИ -->
+    <div class="modal fade" id="settingsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content" style="background: #1e1e1e; color: #e0e0e0;">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title" id="settingsTitle"><i class="bi bi-gear-fill"></i> Настройки</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label text-muted small mb-1">Язык / Language</label>
+                        <select class="form-select form-select-sm bg-dark text-white border-secondary" id="settingLang" onchange="saveSettings()">
+                            <option value="ru">Русский</option>
+                            <option value="en">English</option>
+                            <option value="kg">Кыргызча</option>
+                        </select>
+                    </div>
+                    <div class="form-check form-switch mb-3 d-flex justify-content-between align-items-center ps-0">
+                        <label class="form-check-label" for="settingSnow" id="lblSnow">❄️ Снегопад</label>
+                        <input class="form-check-input ms-auto" type="checkbox" id="settingSnow" onchange="saveSettings()">
+                    </div>
+                    <div class="form-check form-switch mb-3 d-flex justify-content-between align-items-center ps-0">
+                        <label class="form-check-label" for="settingSound" id="lblSound">🔊 Звуки</label>
+                        <input class="form-check-input ms-auto" type="checkbox" id="settingSound" onchange="saveSettings()">
+                    </div>
+                    <div class="form-check form-switch mb-3 d-flex justify-content-between align-items-center ps-0">
+                        <label class="form-check-label" for="settingToasts" id="lblToasts">🔔 Уведомления</label>
+                        <input class="form-check-input ms-auto" type="checkbox" id="settingToasts" onchange="saveSettings()">
+                    </div>
+                    <div class="form-check form-switch mb-3 d-flex justify-content-between align-items-center ps-0">
+                        <label class="form-check-label" for="settingRelax" id="lblRelax">🌊 Релакс (Дождь)</label>
+                        <input class="form-check-input ms-auto" type="checkbox" id="settingRelax" onchange="saveSettings()">
+                    </div>
+                    <div class="mt-4 pt-3 border-top border-secondary">
+                        <button class="btn btn-sm btn-outline-danger w-100" onclick="clearCache()" id="btnClearCache">
+                            <i class="bi bi-trash"></i> Очистить кэш
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block scripts %}{% endblock %}
+
+</body>
+</html>

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ru" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ошибка {{ error_code|default('Error') }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        body { 
+            background-color: #121212; 
+            color: #e0e0e0;
+            display: flex; align-items: center; justify-content: center; 
+            min-height: 100vh; padding: 20px; font-family: 'Segoe UI', sans-serif; 
+        }
+        .error-card { 
+            background: #1e1e1e; 
+            padding: 50px; border-radius: 20px; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5); 
+            text-align: center; max-width: 500px; width: 100%; 
+        }
+        .error-icon { font-size: 5rem; color: #dc3545; margin-bottom: 20px; }
+        .error-code { font-size: 4rem; font-weight: 800; color: #e0e0e0; line-height: 1; }
+        .error-message { font-size: 1.2rem; color: #a0a0a0; margin-bottom: 30px; }
+    </style>
+</head>
+<body>
+
+<div class="error-card">
+    <div class="error-icon"><i class="bi bi-exclamation-octagon-fill"></i></div>
+    <div class="error-code">{{ error_code|default('Error') }}</div>
+    <h4 class="mb-3 fw-bold">Упс! Что-то пошло не так</h4>
+    <p class="error-message">{{ error_message|default('Произошла неизвестная ошибка.') }}</p>
+    <a href="/" class="btn btn-primary btn-lg w-100"><i class="bi bi-house-door-fill"></i> Вернуться на главную</a>
+</div>
+
+</body>
+</html>

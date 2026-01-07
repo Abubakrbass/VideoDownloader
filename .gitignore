@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.env
+venv/
+.venv/
+downloads/
+avatars/
+database.db
+cookies.txt
+cookies (1).txt
+.DS_Store
+.vscode/
+.idea/
+secret.key

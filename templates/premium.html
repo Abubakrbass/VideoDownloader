@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="ru" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Premium Доступ</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&display=swap" rel="stylesheet">
+    <link rel="icon" href="/static/logo.png" type="image/png">
+    <style>
+        html { background-color: #121212; }
+        body { padding-top: 40px; font-family: 'Segoe UI', sans-serif; min-height: 100vh; color: #e0e0e0; }
+        .pricing-header { max-width: 700px; }
+        
+        /* Glassmorphism Cards */
+        .card { 
+            border-radius: 20px; 
+            border: 1px solid rgba(255, 255, 255, 0.1); 
+            transition: all 0.3s ease; 
+            background: rgba(30, 30, 30, 0.6);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            color: #e0e0e0; 
+            box-shadow: 0 15px 35px rgba(0,0,0,0.3); 
+            overflow: hidden;
+        }
+        .card:hover { transform: translateY(-10px); box-shadow: 0 25px 50px rgba(0,0,0,0.5); border-color: rgba(255, 255, 255, 0.2); }
+        .card-header { background: transparent; border-bottom: none; padding-top: 20px; }
+        
+        /* Free Card Specifics */
+        .card-free .card-header h4 { color: #adb5bd; }
+        .card-free .pricing-card-title { color: #fff; }
+        
+        /* Premium Card Specifics */
+        .card-premium {
+            background: linear-gradient(145deg, rgba(255, 215, 0, 0.15), rgba(255, 140, 0, 0.15));
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            color: white;
+            position: relative;
+        }
+        .card-premium::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+            background: linear-gradient(90deg, #FFD700, #FF8C00);
+        }
+        .card-premium .card-header h4 { 
+            background: linear-gradient(90deg, #FFD700, #FF8C00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 800 !important;
+        }
+        .card-premium .list-unstyled li { border-bottom: 1px solid rgba(255,255,255,0.05); padding: 10px 0; }
+        .card-premium .list-unstyled li:last-child { border-bottom: none; }
+        
+        .btn-premium {
+            background: linear-gradient(45deg, #FFD700, #FF8C00);
+            border: none; color: #000; font-weight: 700;
+            box-shadow: 0 5px 15px rgba(255, 215, 0, 0.3);
+            transition: all 0.3s;
+        }
+        .btn-premium:hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 25px rgba(255, 215, 0, 0.5);
+            color: #000;
+        }
+        
+        /* Логотип */
+        .brand-logo {
+            position: absolute; top: 20px; left: 20px; z-index: 100;
+            font-weight: 800; font-size: 1.5rem; text-decoration: none; color: #333;
+            font-family: 'Montserrat', sans-serif; display: flex; align-items: center; gap: 10px;
+        }
+        .brand-logo img { height: 40px; width: auto; }
+        .brand-logo { color: #e0e0e0; }
+    </style>
+</head>
+<body>
+
+<a href="/" class="brand-logo">
+    <img src="/static/logo.png" alt="Logo">
+    Video Downloader
+</a>
+
+<div class="container py-3">
+    <div class="pricing-header p-3 pb-md-4 mx-auto text-center">
+        <h1 class="display-4 fw-bold mb-3" id="txtChoosePlan">Выберите свой план</h1>
+        <p class="fs-5 text-muted" id="txtPlanDesc">Снимите ограничения и качайте видео в максимальном качестве.</p>
+    </div>
+
+    <div class="row row-cols-1 row-cols-md-2 mb-3 text-center justify-content-center">
+        <!-- Бесплатный план -->
+        <div class="col" style="max-width: 400px;">
+            <div class="card mb-4 rounded-3 shadow-sm h-100 card-free">
+                <div class="card-header py-3">
+                    <h4 class="my-0 fw-normal" id="txtFreeTitle">Бесплатный</h4>
+                </div>
+                <div class="card-body">
+                    <h1 class="card-title pricing-card-title"><span id="priceFree">0₽</span><small class="text-muted fw-light" id="txtMonth1">/мес</small></h1>
+                    <ul class="list-unstyled mt-3 mb-4 text-start px-3">
+                        <li class="mb-2"><i class="bi bi-check text-success"></i> <span id="f1">Качество до 720p</span></li>
+                        <li class="mb-2"><i class="bi bi-check text-success"></i> <span id="f2">5 скачиваний в день</span></li>
+                        <li class="mb-2"><i class="bi bi-hourglass-split text-warning"></i> <span id="f6">Медленный поиск</span></li>
+                        <li class="mb-2"><i class="bi bi-dash text-secondary"></i> <span id="f3">Ограниченная скорость</span></li>
+                        <li class="mb-2 text-muted"><i class="bi bi-x"></i> <span id="f4">Нет поддержки 4K/8K</span></li>
+                        <li class="mb-2 text-muted"><i class="bi bi-x"></i> <span id="f5">Нет скачивания плейлистов</span></li>
+                    </ul>
+                    {% if not is_premium %}
+                    <button class="w-100 btn btn-lg btn-outline-secondary disabled" id="btnCurrent1" style="opacity: 0.7;">Ваш текущий план</button>
+                    {% else %}
+                    <button class="w-100 btn btn-lg btn-outline-light disabled" id="btnAvailable" style="opacity: 0.5;">Доступен</button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Premium план -->
+        <div class="col" style="max-width: 400px;">
+            <div class="card mb-4 rounded-3 shadow-sm card-premium h-100">
+                <div class="card-header py-3 border-0">
+                    <h4 class="my-0 fw-bold"><i class="bi bi-gem"></i> PREMIUM</h4>
+                </div>
+                <div class="card-body">
+                    <h1 class="card-title pricing-card-title"><span id="pricePremium">199₽</span><small class="text-white-50 fw-light" id="txtMonth2">/мес</small></h1>
+                    <ul class="list-unstyled mt-3 mb-4 text-start px-3">
+                        <li class="mb-2"><i class="bi bi-check-circle-fill"></i> <b id="p1">Любое качество (4K, 8K)</b></li>
+                        <li class="mb-2"><i class="bi bi-lightning-charge-fill"></i> <b id="p6">Мгновенный поиск</b></li>
+                        <li class="mb-2"><i class="bi bi-check-circle-fill"></i> <b id="p2">Безлимитные скачивания</b></li>
+                        <li class="mb-2"><i class="bi bi-rocket-takeoff-fill"></i> <span id="p3">Максимальная скорость</span></li>
+                        <li class="mb-2"><i class="bi bi-check-circle-fill"></i> <span id="p4">Скачивание плейлистов</span></li>
+                        <li class="mb-2"><i class="bi bi-check-circle-fill"></i> <span id="p5">Приоритетная поддержка</span></li>
+                    </ul>
+                    <!-- Ссылка на контакт с админом или форму оплаты -->
+                    {% if is_premium %}
+                    <button class="w-100 btn btn-lg btn-light fw-bold text-dark disabled" id="btnCurrent2" style="background: rgba(255,255,255,0.8);">Ваш текущий план</button>
+                    {% else %}
+                    <a href="/buy_premium" class="w-100 btn btn-lg btn-premium" id="btnBuy">Подключить Premium</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="text-center mt-4"><a href="/" class="text-decoration-none text-muted" id="btnHome">Вернуться на главную</a></div>
+</div>
+
+<!-- Эффект снегопада -->
+<style>
+    /* Снежинки - белые круги */
+    #snow-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9999; transition: transform 0.1s ease-out; }
+    .snowflake { position: absolute; top: -10px; background: white; border-radius: 50%; user-select: none; pointer-events: none; animation: fall linear infinite; box-shadow: 0 0 5px rgba(255,255,255,0.8); }
+    @keyframes fall { to { transform: translateY(120vh); } }
+    .snow-pile { position: fixed; bottom: -5px; left: 0; width: 100%; height: 20px; background: rgba(255, 255, 255, 0.6); filter: blur(8px); z-index: 9998; pointer-events: none; }
+</style>
+<div class="snow-pile"></div>
+<div id="snow-container"></div>
+<script>
+    const TRANSLATIONS = {
+        ru: {
+            choosePlan: 'Выберите свой план',
+            planDesc: 'Снимите ограничения и качайте видео в максимальном качестве.',
+            freeTitle: 'Бесплатный',
+            month: '/мес',
+            f1: 'Качество до 720p', f2: '5 скачиваний в день', f3: 'Ограниченная скорость', f4: 'Нет поддержки 4K/8K', f5: 'Нет скачивания плейлистов',
+            f6: 'Медленный поиск (очередь)',
+            currentPlan: 'Ваш текущий план',
+            available: 'Доступен',
+            p1: 'Любое качество (4K, 8K)', p2: 'Безлимитные скачивания', p3: 'Максимальная скорость', p4: 'Скачивание плейлистов', p5: 'Приоритетная поддержка',
+            p6: 'Мгновенный поиск',
+            buy: 'Подключить Premium',
+            home: 'Вернуться на главную',
+            priceFree: '0₽', pricePremium: '199₽',
+            currency: 'RUB'
+        },
+        en: {
+            choosePlan: 'Choose your plan',
+            planDesc: 'Remove limits and download videos in maximum quality.',
+            freeTitle: 'Free',
+            month: '/month',
+            f1: 'Quality up to 720p', f2: '5 downloads per day', f3: 'Limited speed', f4: 'No 4K/8K support', f5: 'No playlist downloading',
+            f6: 'Slow search (queue)',
+            currentPlan: 'Your current plan',
+            available: 'Available',
+            p1: 'Any quality (4K, 8K)', p2: 'Unlimited downloads', p3: 'Maximum speed', p4: 'Playlist downloading', p5: 'Priority support',
+            p6: 'Instant search',
+            buy: 'Get Premium',
+            home: 'Back to Home',
+            priceFree: '$0', pricePremium: '$2.99',
+            currency: 'USD'
+        },
+        kg: {
+            choosePlan: 'Планды тандаңыз',
+            planDesc: 'Чектөөлөрдү алып салып, видеолорду жогорку сапатта жүктөңүз.',
+            freeTitle: 'Акысыз',
+            month: '/ай',
+            f1: 'Сапаты 720p чейин', f2: 'Күнүнө 5 жүктөө', f3: 'Чектелген ылдамдык', f4: '4K/8K колдоосу жок', f5: 'Плейлист жүктөө жок',
+            f6: 'Жай издөө (кезек)',
+            currentPlan: 'Сиздин план',
+            available: 'Колжеткиликтүү',
+            p1: 'Каалаган сапат (4K, 8K)', p2: 'Чексиз жүктөөлөр', p3: 'Максималдуу ылдамдык', p4: 'Плейлисттерди жүктөө', p5: 'Биринчи кезекте колдоо',
+            p6: 'Тез издөө',
+            buy: 'Premium алуу',
+            home: 'Башкы бетке кайтуу',
+            priceFree: '0 сом', pricePremium: '199 сом',
+            currency: 'RUB' // FreeKassa может не поддерживать KGS напрямую, используем RUB или USD
+        }
+    };
+
+    const TranslationManager = {
+        getLang() {
+            try {
+                const saved = localStorage.getItem('appSettings');
+                return saved ? (JSON.parse(saved).lang || 'ru') : 'ru';
+            } catch (e) { return 'ru'; }
+        },
+        apply() {
+            const t = TRANSLATIONS[this.getLang()];
+            if (!t) return;
+
+            const setText = (id, text) => {
+                const el = document.getElementById(id);
+                if (el) el.innerText = text;
+            };
+
+            const map = {
+                'txtChoosePlan': t.choosePlan, 'txtPlanDesc': t.planDesc, 'txtFreeTitle': t.freeTitle,
+                'txtMonth1': t.month, 'txtMonth2': t.month,
+                'f1': t.f1, 'f2': t.f2, 'f3': t.f3, 'f4': t.f4, 'f5': t.f5, 'f6': t.f6,
+                'p1': t.p1, 'p2': t.p2, 'p3': t.p3, 'p4': t.p4, 'p5': t.p5, 'p6': t.p6,
+                'btnCurrent1': t.currentPlan, 'btnAvailable': t.available,
+                'btnCurrent2': t.currentPlan, 'btnBuy': t.buy, 'btnHome': t.home
+            };
+
+            for (const [id, text] of Object.entries(map)) {
+                setText(id, text);
+            }
+        }
+    };
+
+    const SnowEffect = {
+        enabled: true,
+        container: document.getElementById('snow-container'),
+        
+        init() {
+            try {
+                const saved = localStorage.getItem('appSettings');
+                if (saved) {
+                    const settings = JSON.parse(saved);
+                    this.enabled = settings.snow !== false;
+                }
+            } catch(e) {}
+
+            if (!this.enabled) {
+                if (this.container) this.container.style.display = 'none';
+                const pile = document.querySelector('.snow-pile');
+                if (pile) pile.style.display = 'none';
+                return;
+            }
+
+            for(let i=0; i<50; i++) this.createSnowflake(true);
+            setInterval(() => this.createSnowflake(false), 50);
+            
+            document.addEventListener('mousemove', (e) => {
+                const x = (e.clientX / window.innerWidth - 0.5) * 20;
+                const y = (e.clientY / window.innerHeight - 0.5) * 20;
+                this.container.style.transform = `translate(${x}px, ${y}px)`;
+            });
+        },
+
+        createSnowflake(isInit = false) {
+            if (!this.enabled || !this.container) return;
+            const snowflake = document.createElement('div');
+            snowflake.classList.add('snowflake');
+            snowflake.style.left = Math.random() * 100 + 'vw';
+            snowflake.style.opacity = Math.random() * 0.6 + 0.4;
+            const size = Math.random() * 6 + 3 + 'px';
+            snowflake.style.width = size;
+            snowflake.style.height = size;
+            
+            const duration = Math.random() * 5 + 5 + 's';
+            snowflake.style.animationDuration = duration;
+            if (isInit) snowflake.style.top = Math.random() * 100 + 'vh';
+
+            this.container.appendChild(snowflake);
+            setTimeout(() => snowflake.remove(), parseFloat(duration) * 1000);
+        }
+    };
+
+    // Инициализация
+    TranslationManager.apply();
+    SnowEffect.init();
+</script>
+</body>
+</html>

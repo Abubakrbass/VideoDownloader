@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="ru" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админ-панель</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg-dark: #121212; --card-bg: #1e1e1e; --text-main: #e0e0e0; --text-muted: #a0a0a0; --accent: #0d6efd; }
+        body { background-color: var(--bg-dark); color: var(--text-main); font-family: 'Inter', sans-serif; min-height: 100vh; padding: 20px; }
+        
+        .dashboard-container { max-width: 1400px; margin: 0 auto; }
+        
+        /* Карточки статистики */
+        .stat-card { background: var(--card-bg); border-radius: 16px; padding: 20px; border: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; gap: 15px; transition: transform 0.2s; }
+        .stat-card:hover { transform: translateY(-3px); border-color: rgba(255,255,255,0.1); }
+        .stat-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; }
+        
+        /* Основная таблица */
+        .main-table-card { background: var(--card-bg); border-radius: 20px; padding: 25px; border: 1px solid rgba(255,255,255,0.05); box-shadow: 0 10px 40px rgba(0,0,0,0.2); margin-top: 20px; }
+        
+        .table-custom { margin-bottom: 0; }
+        .table-custom th { background-color: transparent; color: var(--text-muted); font-weight: 600; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px; border-bottom: 1px solid rgba(255,255,255,0.1); padding: 15px; }
+        .table-custom td { padding: 15px; vertical-align: middle; border-bottom: 1px solid rgba(255,255,255,0.05); color: var(--text-main); font-size: 0.95rem; }
+        .table-custom tr:last-child td { border-bottom: none; }
+        .table-custom tr:hover td { background-color: rgba(255,255,255,0.02); }
+
+        .user-avatar-small { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; margin-right: 12px; border: 2px solid rgba(255,255,255,0.1); }
+        
+        /* Бейджи статусов */
+        .status-badge { padding: 6px 12px; border-radius: 30px; font-size: 0.75rem; font-weight: 700; display: inline-block; }
+        .status-premium { background: rgba(255, 193, 7, 0.1); color: #ffc107; border: 1px solid rgba(255, 193, 7, 0.2); }
+        .status-free { background: rgba(255, 255, 255, 0.05); color: #adb5bd; border: 1px solid rgba(255, 255, 255, 0.1); }
+        .status-banned { background: rgba(220, 53, 69, 0.1); color: #dc3545; border: 1px solid rgba(220, 53, 69, 0.2); }
+        
+        /* Кнопки действий */
+        .action-btn { width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; transition: all 0.2s; border: none; background: rgba(255,255,255,0.05); color: var(--text-muted); margin-left: 5px; }
+        .action-btn:hover { color: #fff; transform: scale(1.1); background: rgba(255,255,255,0.1); }
+        .btn-edit:hover { background: #0d6efd; color: white; }
+        .btn-delete:hover { background: #dc3545; color: white; }
+        
+        /* Поиск и фильтры */
+        .search-bar { background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 12px; padding: 10px 15px; padding-left: 40px; }
+        .search-bar:focus { background: rgba(0,0,0,0.3); border-color: var(--accent); color: #fff; box-shadow: none; }
+        .filter-select { background-color: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: #e0e0e0; border-radius: 12px; padding: 10px; cursor: pointer; }
+        .filter-select:focus { background-color: rgba(0,0,0,0.3); border-color: var(--accent); color: #fff; box-shadow: none; }
+        
+        .page-link { background: transparent; border-color: rgba(255,255,255,0.1); color: #e0e0e0; }
+        .page-link:hover { background: rgba(255,255,255,0.05); color: #fff; }
+        .page-item.disabled .page-link { background: transparent; border-color: rgba(255,255,255,0.05); }
+    </style>
+</head>
+<body>
+
+<div class="dashboard-container">
+    <!-- Шапка -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-0" id="adminTitle">Admin Dashboard</h2>
+            <p class="text-muted small mb-0">Управление пользователями</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-primary d-flex align-items-center gap-2 rounded-pill px-4" onclick="openNotifyModal()" id="btnSendNotif">
+                <i class="bi bi-megaphone-fill"></i> <span>Уведомление</span>
+            </button>
+            <a href="/profile" class="btn btn-outline-secondary d-flex align-items-center gap-2 rounded-pill px-4" id="btnBackToProfile">
+                <i class="bi bi-arrow-left"></i> <span>Назад</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Статистика -->
+    <div class="row mb-4">
+        <div class="col-md-4 col-lg-3">
+            <div class="stat-card">
+                <div class="stat-icon bg-success bg-opacity-10 text-success">
+                    <i class="bi bi-circle-fill" style="font-size: 1rem;"></i>
+                </div>
+                <div>
+                    <h3 class="mb-0 fw-bold" id="onlineCount">{{ online_users }}</h3>
+                    <span class="text-muted small" id="lblOnline">Онлайн сейчас</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-table-card">
+        <!-- Фильтры -->
+        <form action="/admin/users" method="get" class="row g-3 mb-4 align-items-center">
+            <div class="col-md-4">
+                <div class="position-relative">
+                    <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
+                    <input type="text" id="searchInput" name="q" class="form-control search-bar" placeholder="Поиск..." value="{{ search_query or '' }}" oninput="debouncedSearch()">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <select name="status" id="statusFilter" class="form-select filter-select" onchange="debouncedSearch()">
+                    <option id="optAllStatuses" value="all" {% if not filter_status or filter_status == 'all' %}selected{% endif %}>Все статусы</option>
+                    <option id="optActive" value="active" {% if filter_status == 'active' %}selected{% endif %}>Активные</option>
+                    <option id="optBanned" value="banned" {% if filter_status == 'banned' %}selected{% endif %}>Забаненные</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select name="sort" id="sortFilter" class="form-select filter-select" onchange="debouncedSearch()">
+                    <option id="optNewest" value="newest" {% if sort_by == 'newest' %}selected{% endif %}>Сначала новые</option>
+                    <option id="optOldest" value="oldest" {% if sort_by == 'oldest' %}selected{% endif %}>Сначала старые</option>
+                </select>
+            </div>
+            <div class="col-md-2 text-end">
+                {% if search_query or (filter_status and filter_status != 'all') %}
+                <a href="/admin/users" class="btn btn-link text-muted text-decoration-none" id="btnReset"><i class="bi bi-x-circle"></i> Сбросить</a>
+                {% endif %}
+            </div>
+        </form>
+
+        <!-- Таблица -->
+        <div class="table-responsive">
+            <table class="table table-custom table-borderless">
+                <thead>
+                    <tr>
+                        <th id="thId">ID</th>
+                        <th id="thUsername">Пользователь</th>
+                        <th id="thEmail">Email</th>
+                        <th id="thPremium">Статус</th>
+                        <th id="thRegDate">Регистрация</th>
+                        <th id="thActions" class="text-end">Действия</th>
+                    </tr>
+                </thead>
+                <tbody id="usersTableBody">
+                    {% for user in users or [] %}
+                    <tr>
+                        <td class="text-muted">#{{ user.id }}</td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <img src="{{ user.avatar_url or 'https://via.placeholder.com/38' }}" class="user-avatar-small" alt="ava">
+                                <div>
+                                    <div class="fw-bold">{{ user.username }}</div>
+                                    {% if user.google_id %}<small class="text-muted" style="font-size: 0.7em"><i class="bi bi-google"></i> Google</small>{% endif %}
+                                </div>
+                            </div>
+                        </td>
+                        <td class="text-muted">{{ user.email or '-' }}</td>
+                        <td>
+                            {% if user.banned_until and now and user.banned_until > now %}
+                                <span class="status-badge status-banned">BANNED</span>
+                            {% elif user.is_premium %}
+                                <span class="status-badge status-premium">PREMIUM</span>
+                            {% elif user.premium_until and now and user.premium_until > now %}
+                                <span class="status-badge status-premium">30 DAYS</span>
+                            {% else %}
+                                <span class="status-badge status-free">FREE</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted small">{{ user.created_at }}</td>
+                        <td class="text-end">
+                            <button class="action-btn btn-edit" onclick="togglePremium('{{user.id}}')" title="Premium"><i class="bi bi-gem"></i></button>
+                            <button class="action-btn btn-edit" onclick="openNotifyModal('{{user.id}}', '{{user.username}}')" title="Сообщение"><i class="bi bi-envelope"></i></button>
+                            <div class="btn-group">
+                                <button class="action-btn" data-bs-toggle="dropdown"><i class="bi bi-three-dots-vertical"></i></button>
+                                <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end">
+                                    <li><a class="dropdown-item text-warning" href="#" onclick="banUser('{{user.id}}', 'week')">Бан 7 дней</a></li>
+                                    <li><a class="dropdown-item text-danger" href="#" onclick="banUser('{{user.id}}', 'forever')">Бан навсегда</a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item text-success" href="#" onclick="banUser('{{user.id}}', 'unban')">Разбанить</a></li>
+                                </ul>
+                            </div>
+                            <button class="action-btn btn-delete" onclick="deleteUser('{{user.id}}')" title="Удалить"><i class="bi bi-trash"></i></button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Пагинация -->
+        <div id="paginationContainer">
+            {% if total_pages > 1 %}
+            <nav aria-label="Page navigation" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    <li class="page-item {% if page == 1 %}disabled{% endif %}">
+                        <a class="page-link" id="pageBack" href="{{ url_for('admin_users', page=page-1, q=search_query, status=filter_status, sort=sort_by) }}">Назад</a>
+                    </li>
+                    <li class="page-item disabled"><span class="page-link" id="pageInfo">Страница {{ page }} из {{ total_pages }}</span></li>
+                    <li class="page-item {% if page == total_pages %}disabled{% endif %}">
+                        <a class="page-link" id="pageForward" href="{{ url_for('admin_users', page=page+1, q=search_query, status=filter_status, sort=sort_by) }}">Вперед</a>
+                    </li>
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно подтверждения -->
+<div class="modal fade" id="confirmModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content bg-dark text-light">
+      <div class="modal-header border-secondary">
+        <h5 class="modal-title" id="confirmTitle">Подтверждение действия</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="confirmModalBody">Вы уверены?</div>
+        <div id="reasonInputContainer" class="mt-3" style="display: none;">
+            <label class="form-label fw-bold" id="lblReason">Причина бана (опционально):</label>
+            <input type="text" id="reasonInput" class="form-control bg-secondary text-light border-0" placeholder="Например: Нарушение правил">
+        </div>
+      </div>
+      <div class="modal-footer border-secondary">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="btnCancel">Отмена</button>
+        <button type="button" class="btn btn-danger" id="confirmModalBtn">Да, выполнить</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Модальное окно уведомления -->
+<div class="modal fade" id="notifyModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content bg-dark text-light">
+      <div class="modal-header border-secondary">
+        <h5 class="modal-title" id="notifyModalTitle">Отправить уведомление</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <textarea id="notifyMessage" class="form-control bg-secondary text-light border-0" rows="3" placeholder="Введите текст уведомления..."></textarea>
+      </div>
+      <div class="modal-footer border-secondary">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="btnNotifCancel">Отмена</button>
+        <button type="button" class="btn btn-primary" onclick="sendNotification()" id="btnNotifSend">Отправить</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// --- УТИЛИТЫ И КОНФИГУРАЦИЯ ---
+const confirmModalElement = document.getElementById('confirmModal');
+const confirmModal = new bootstrap.Modal(confirmModalElement);
+let pendingAction = null;
+
+// Универсальная функция для API запросов
+async function apiRequest(url, method = 'GET', body = null) {
+    try {
+        const options = {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+                // 'X-CSRFToken': '{{ csrf_token() if csrf_token else "" }}' // Раскомментировать при добавлении Flask-WTF
+            }
+        };
+        if (body) options.body = JSON.stringify(body);
+
+        const res = await fetch(url, options);
+        
+        // Проверка на HTML ответ при ожидании JSON (ошибка сервера)
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.indexOf("application/json") === -1) {
+            throw new Error("Сервер вернул не JSON (возможно ошибка 500)");
+        }
+
+        if (!res.ok) {
+            const errData = await res.json();
+            throw new Error(errData.error || `Ошибка ${res.status}`);
+        }
+
+        return await res.json();
+    } catch (e) {
+        console.error("API Error:", e);
+        alert(e.message || 'Ошибка сети');
+        return null;
+    }
+}
+
+// --- МОДАЛЬНЫЕ ОКНА ---
+document.getElementById('confirmModalBtn').onclick = async () => {
+    if (pendingAction) {
+        await pendingAction();
+    }
+    confirmModal.hide();
+};
+
+function showConfirm(message, actionFn, showReason = false) {
+    document.getElementById('confirmModalBody').innerText = message;
+    pendingAction = actionFn;
+    
+    const reasonContainer = document.getElementById('reasonInputContainer');
+    const reasonInput = document.getElementById('reasonInput');
+    
+    if (showReason) {
+        reasonContainer.style.display = 'block';
+        reasonInput.value = ''; // Очищаем поле
+    } else {
+        reasonContainer.style.display = 'none';
+    }
+    confirmModal.show();
+}
+
+// --- ЖИВОЙ ПОИСК (AJAX) ---
+let debounceTimer;
+
+function debouncedSearch() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => updateTableData(true), 300);
+}
+
+async function updateTableData(pushState = false) {
+    const q = document.getElementById('searchInput').value;
+    const status = document.getElementById('statusFilter').value;
+    const sort = document.getElementById('sortFilter').value;
+    // Если это автообновление, берем текущую страницу из URL, иначе 1
+    const params = new URLSearchParams(window.location.search);
+    const page = pushState ? 1 : (params.get('page') || 1);
+    
+    const url = `/admin/users?q=${encodeURIComponent(q)}&status=${status}&sort=${sort}&page=${page}`;
+    
+    if (pushState) {
+        window.history.pushState({}, '', url);
+    }
+
+    try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('Ошибка загрузки таблицы');
+        const html = await res.text();
+        
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const newTbody = doc.getElementById('usersTableBody');
+        const newPagination = doc.getElementById('paginationContainer');
+        
+        if (newTbody) document.getElementById('usersTableBody').innerHTML = newTbody.innerHTML;
+        if (newPagination) document.getElementById('paginationContainer').innerHTML = newPagination.innerHTML;
+    } catch (e) {
+        console.error("Ошибка обновления таблицы:", e);
+    }
+}
+
+// --- ДЕЙСТВИЯ С ПОЛЬЗОВАТЕЛЯМИ ---
+function banUser(id, action) {
+    let msg = 'Вы уверены?';
+    let isBan = false;
+    if(action === 'forever') msg = 'Забанить пользователя НАВСЕГДА?';
+    if(action === 'week') msg = 'Забанить пользователя на 7 дней?';
+    if(action === 'forever' || action === 'week') isBan = true;
+    if(action === 'unban') msg = 'Разблокировать пользователя?';
+    
+    showConfirm(msg, async () => {
+        const reason = isBan ? document.getElementById('reasonInput').value : null;
+        const data = await apiRequest('/admin/ban_user/' + id, 'POST', {action, reason});
+        if (data && data.success) location.reload();
+    }, isBan);
+}
+
+function deleteUser(id) {
+    showConfirm('ВНИМАНИЕ: Вы уверены, что хотите удалить этого пользователя? Это действие нельзя отменить.', async () => {
+        const data = await apiRequest('/admin/delete_user/' + id, 'POST');
+        if (data && data.success) location.reload();
+    });
+}
+
+function togglePremium(id) {
+    showConfirm('Изменить статус Premium для этого пользователя?', async () => {
+        const data = await apiRequest('/admin/toggle_premium/' + id, 'POST');
+        if (data && data.success) location.reload();
+    });
+}
+
+// --- УВЕДОМЛЕНИЯ ---
+const notifyModal = new bootstrap.Modal(document.getElementById('notifyModal'));
+let targetUserId = null;
+
+function openNotifyModal(userId = null, username = null) {
+    targetUserId = userId;
+    const title = document.getElementById('notifyModalTitle');
+    if (userId) title.innerText = 'Личное сообщение для: ' + username;
+    else title.innerText = 'Отправить уведомление ВСЕМ';
+    
+    document.getElementById('notifyMessage').value = '';
+    notifyModal.show();
+}
+
+async function sendNotification() {
+    const message = document.getElementById('notifyMessage').value;
+    if(!message) return alert('Введите сообщение');
+    
+    const data = await apiRequest('/admin/send_notification', 'POST', {message, user_id: targetUserId});
+    if (data && data.success) { 
+        notifyModal.hide(); 
+        alert('Уведомление отправлено!'); 
+    }
+}
+
+// --- ФОНОВЫЕ ЗАДАЧИ ---
+setInterval(async () => {
+    const data = await apiRequest('/admin/online_count');
+    if (data && data.count !== undefined) {
+        document.getElementById('onlineCount').innerText = data.count;
+    }
+}, 5 * 60 * 1000);
+
+setInterval(() => {
+    // Не обновляем, если открыто модальное окно ИЛИ выпадающее меню (dropdown)
+    // Это предотвращает закрытие меню при автообновлении
+    if (document.querySelector('.modal.show') || document.querySelector('.dropdown-menu.show')) return;
+    updateTableData(false);
+}, 10000);
+
+// --- ПЕРЕВОД ---
+const adminTranslations = {
+    ru: {
+        title: 'Пользователи', online: 'Онлайн', sendNotif: 'Отправить уведомление', backToProfile: 'Назад в профиль',
+        searchPlaceholder: 'Поиск по имени или email...', allStatuses: 'Все статусы', active: 'Активные', banned: 'Забаненные',
+        newest: 'Сначала новые', oldest: 'Сначала старые', search: 'Найти', reset: 'Сбросить',
+        thId: 'ID', thUsername: 'Имя пользователя', thRegDate: 'Дата регистрации', thEmail: 'Email', thPremium: 'Premium', thGoogleId: 'Google ID', thActions: 'Действия',
+        pageBack: 'Назад', pageInfo: 'Страница {{page}} из {{totalPages}}', pageForward: 'Вперед',
+        confirmTitle: 'Подтверждение действия', confirmDefault: 'Вы уверены?', confirmBanForever: 'Забанить пользователя НАВСЕГДА?', confirmBanWeek: 'Забанить пользователя на 7 дней?', confirmUnban: 'Разблокировать пользователя?', confirmDelete: 'ВНИМАНИЕ: Вы уверены, что хотите удалить этого пользователя? Это действие нельзя отменить.', confirmPremium: 'Изменить статус Premium для этого пользователя?',
+        lblReason: 'Причина бана (опционально):', reasonPlaceholder: 'Например: Нарушение правил',
+        btnCancel: 'Отмена', btnConfirm: 'Да, выполнить',
+        notifTitle: 'Отправить уведомление', notifPlaceholder: 'Введите текст уведомления...', btnNotifSend: 'Отправить',
+        notifTitleUser: 'Личное сообщение для: {{user}}', notifTitleAll: 'Отправить уведомление ВСЕМ',
+        alertError: 'Ошибка: ', alertNetError: 'Ошибка сети', alertSent: 'Уведомление отправлено!', alertEnterMsg: 'Введите сообщение'
+    },
+    en: {
+        title: 'Users', online: 'Online', sendNotif: 'Send Notification', backToProfile: 'Back to Profile',
+        searchPlaceholder: 'Search by name or email...', allStatuses: 'All Statuses', active: 'Active', banned: 'Banned',
+        newest: 'Newest first', oldest: 'Oldest first', search: 'Search', reset: 'Reset',
+        thId: 'ID', thUsername: 'Username', thRegDate: 'Registration Date', thEmail: 'Email', thPremium: 'Premium', thGoogleId: 'Google ID', thActions: 'Actions',
+        pageBack: 'Previous', pageInfo: 'Page {{page}} of {{totalPages}}', pageForward: 'Next',
+        confirmTitle: 'Confirm Action', confirmDefault: 'Are you sure?', confirmBanForever: 'Ban user FOREVER?', confirmBanWeek: 'Ban user for 7 days?', confirmUnban: 'Unban user?', confirmDelete: 'WARNING: Are you sure you want to delete this user? This action cannot be undone.', confirmPremium: 'Toggle Premium status for this user?',
+        lblReason: 'Ban reason (optional):', reasonPlaceholder: 'Example: Rule violation',
+        btnCancel: 'Cancel', btnConfirm: 'Yes, proceed',
+        notifTitle: 'Send Notification', notifPlaceholder: 'Enter notification text...', btnNotifSend: 'Send',
+        notifTitleUser: 'Personal message for: {{user}}', notifTitleAll: 'Send notification to ALL',
+        alertError: 'Error: ', alertNetError: 'Network error', alertSent: 'Notification sent!', alertEnterMsg: 'Enter a message'
+    },
+    kg: {
+        title: 'Колдонуучулар', online: 'Онлайн', sendNotif: 'Билдирүү жөнөтүү', backToProfile: 'Профилге кайтуу',
+        searchPlaceholder: 'Аты же email боюнча издөө...', allStatuses: 'Бардык статустар', active: 'Активдүү', banned: 'Бөгөттөлгөн',
+        newest: 'Адегенде жаңылар', oldest: 'Адегенде эскилер', search: 'Издөө', reset: 'Тазалоо',
+        thId: 'ID', thUsername: 'Колдонуучу аты', thRegDate: 'Катталган күнү', thEmail: 'Email', thPremium: 'Premium', thGoogleId: 'Google ID', thActions: 'Аракеттер',
+        pageBack: 'Артка', pageInfo: '{{totalPages}} ичинен {{page}}-барак', pageForward: 'Алга',
+        confirmTitle: 'Аракетти ырастоо', confirmDefault: 'Ишенесизби?', confirmBanForever: 'Колдонуучуну ТҮБӨЛҮККӨ бөгөттөйбүзбү?', confirmBanWeek: 'Колдонуучуну 7 күнгө бөгөттөйбүзбү?', confirmUnban: 'Колдонуучуну бөгөттөн чыгарабызбы?', confirmDelete: 'КӨҢҮЛ БУРУҢУЗ: Бул колдонуучуну өчүргүңүз келеби? Бул аракетти артка кайтаруу мүмкүн эмес.', confirmPremium: 'Бул колдонуучу үчүн Premium статусун өзгөртөбүзбү?',
+        lblReason: 'Бөгөттөө себеби (милдеттүү эмес):', reasonPlaceholder: 'Мисалы: Эреже бузуу',
+        btnCancel: 'Жокко чыгаруу', btnConfirm: 'Ооба, аткаруу',
+        notifTitle: 'Билдирүү жөнөтүү', notifPlaceholder: 'Билдирүүнүн текстин киргизиңиз...', btnNotifSend: 'Жөнөтүү',
+        notifTitleUser: 'Жеке билдирүү: {{user}}', notifTitleAll: 'БАРДЫГЫНА билдирүү жөнөтүү',
+        alertError: 'Ката: ', alertNetError: 'Тармак катасы', alertSent: 'Билдирүү жөнөтүлдү!', alertEnterMsg: 'Билдирүү киргизиңиз'
+    }
+};
+
+function applyAdminLanguage() {
+    const saved = localStorage.getItem('appSettings');
+    const currentLang = saved ? JSON.parse(saved).lang || 'ru' : 'ru';
+    const t = adminTranslations[currentLang];
+    if (!t) return;
+
+    document.title = t.title;
+    document.getElementById('adminTitle').innerHTML = `<i class="bi bi-people-fill"></i> ${t.title}`;
+    document.getElementById('lblOnline').innerText = t.online;
+    document.getElementById('btnSendNotif').innerHTML = `<i class="bi bi-megaphone-fill"></i> ${t.sendNotif}`;
+    document.getElementById('btnBackToProfile').innerText = t.backToProfile;
+    document.getElementById('searchInput').placeholder = t.searchPlaceholder;
+    document.getElementById('optAllStatuses').innerText = t.allStatuses;
+    document.getElementById('optActive').innerText = t.active;
+    document.getElementById('optBanned').innerText = t.banned;
+    document.getElementById('optNewest').innerText = t.newest;
+    document.getElementById('optOldest').innerText = t.oldest;
+    document.getElementById('btnSearch').innerHTML = `<i class="bi bi-search"></i> ${t.search}`;
+    if(document.getElementById('btnReset')) document.getElementById('btnReset').innerText = t.reset;
+    
+    document.getElementById('thId').innerText = t.thId;
+    document.getElementById('thUsername').innerText = t.thUsername;
+    document.getElementById('thRegDate').innerText = t.thRegDate;
+    document.getElementById('thEmail').innerText = t.thEmail;
+    document.getElementById('thPremium').innerText = t.thPremium;
+    document.getElementById('thGoogleId').innerText = t.thGoogleId;
+    document.getElementById('thActions').innerText = t.thActions;
+
+    const pageInfoEl = document.getElementById('pageInfo');
+    if (pageInfoEl) {
+        const page = Number("{{ page }}");
+        const totalPages = Number("{{ total_pages }}");
+        pageInfoEl.innerText = t.pageInfo.replace('{{page}}', page).replace('{{totalPages}}', totalPages);
+    }
+    const pageBackEl = document.getElementById('pageBack');
+    if(pageBackEl) pageBackEl.innerText = t.pageBack;
+    const pageForwardEl = document.getElementById('pageForward');
+    if(pageForwardEl) pageForwardEl.innerText = t.pageForward;
+
+    // Modals
+    document.getElementById('confirmTitle').innerText = t.confirmTitle;
+    document.getElementById('lblReason').innerText = t.lblReason;
+    document.getElementById('reasonInput').placeholder = t.reasonPlaceholder;
+    document.getElementById('btnCancel').innerText = t.btnCancel;
+    document.getElementById('confirmModalBtn').innerText = t.btnConfirm;
+    document.getElementById('notifyModalTitle').innerText = t.notifTitle;
+    document.getElementById('notifyMessage').placeholder = t.notifPlaceholder;
+    document.getElementById('btnNotifCancel').innerText = t.btnCancel;
+    document.getElementById('btnNotifSend').innerText = t.btnNotifSend;
+}
+applyAdminLanguage();
+</script>
+</body>
+</html>

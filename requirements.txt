@@ -1,0 +1,11 @@
+Flask
+yt-dlp
+flask-socketio
+python-dotenv
+Authlib
+requests
+gunicorn
+eventlet
+PySocks
+static-ffmpeg
+Flask-WTF

@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ru" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Завершение регистрации</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #121212; display: flex; align-items: center; justify-content: center; height: 100vh; color: #e0e0e0; }
+        .card { max-width: 400px; width: 100%; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); background-color: #1e1e1e; color: #e0e0e0; }
+    </style>
+</head>
+<body>
+
+<div class="card p-4">
+    <h4 class="text-center mb-3" id="regTitle">Завершение регистрации</h4>
+    <p class="text-muted text-center small" id="regDesc">Вы успешно вошли через Google.<br>Теперь придумайте имя пользователя и пароль для вашего аккаунта.</p>
+    
+    <form id="registrationForm">
+        <div class="mb-3">
+            <label class="form-label text-muted small" id="lblEmail">Ваш Email (из Google)</label>
+            <input type="text" class="form-control" value="{{ email }}" disabled>
+        </div>
+        <div class="mb-3">
+            <label class="form-label" id="lblUser">Имя пользователя</label>
+            <input type="text" id="username" class="form-control" required placeholder="В">
+            <div id="username-error" class="invalid-feedback" style="display: none;"></div>
+        </div>
+        <div class="mb-3">
+            <label class="form-label" id="lblPass">Придумайте пароль</label>
+            <input type="password" id="password" class="form-control" required placeholder="Минимум 6 символов">
+            <div id="password-error" class="invalid-feedback" style="display: none;"></div>
+        </div>
+        <div id="global-error" class="text-danger text-center mb-3 small" style="display: none;"></div>
+        <button type="submit" class="btn btn-primary w-100" id="btnCreate">Создать аккаунт</button>
+    </form>
+</div>
+
+<script>
+// --- ПЕРЕВОД ---
+const TRANSLATIONS = {
+    ru: { title: 'Завершение регистрации', desc: 'Вы успешно вошли через Google.<br>Теперь придумайте имя пользователя и пароль.', email: 'Ваш Email', user: 'Имя пользователя', pass: 'Придумайте пароль', btn: 'Создать аккаунт' },
+    en: { title: 'Complete Registration', desc: 'You successfully logged in with Google.<br>Now create a username and password.', email: 'Your Email', user: 'Username', pass: 'Create password', btn: 'Create Account' },
+    kg: { title: 'Каттоону аяктоо', desc: 'Сиз Google аркылуу ийгиликтүү кирдиңиз.<br>Эми колдонуучу атын жана сыр сөздү ойлоп табыңыз.', email: 'Сиздин Email', user: 'Колдонуучу аты', pass: 'Сыр сөз ойлоп табыңыз', btn: 'Аккаунт түзүү' }
+};
+
+const TranslationManager = {
+    getLang() {
+        try {
+            const saved = localStorage.getItem('appSettings');
+            return saved ? (JSON.parse(saved).lang || 'ru') : 'ru';
+        } catch (e) { return 'ru'; }
+    },
+    apply() {
+        const t = TRANSLATIONS[this.getLang()];
+        if (!t) return;
+        
+        document.getElementById('regTitle').innerText = t.title;
+        document.getElementById('regDesc').innerHTML = t.desc;
+        document.getElementById('lblEmail').innerText = t.email;
+        document.getElementById('lblUser').innerText = t.user;
+        document.getElementById('lblPass').innerText = t.pass;
+        document.getElementById('btnCreate').innerText = t.btn;
+    }
+};
+
+const RegistrationManager = {
+    elements: {
+        form: document.getElementById('registrationForm'),
+        username: document.getElementById('username'),
+        password: document.getElementById('password'),
+        usernameError: document.getElementById('username-error'),
+        passwordError: document.getElementById('password-error'),
+        globalError: document.getElementById('global-error'),
+        btn: document.getElementById('btnCreate')
+    },
+
+    init() {
+        this.elements.form.addEventListener('submit', (e) => this.handleSubmit(e));
+    },
+
+    resetErrors() {
+        const { username, password, usernameError, passwordError, globalError } = this.elements;
+        username.classList.remove('is-invalid');
+        password.classList.remove('is-invalid');
+        usernameError.style.display = 'none';
+        passwordError.style.display = 'none';
+        globalError.style.display = 'none';
+    },
+
+    showError(field, message) {
+        if (field === 'username') {
+            this.elements.username.classList.add('is-invalid');
+            this.elements.usernameError.textContent = message;
+            this.elements.usernameError.style.display = 'block';
+        } else if (field === 'password') {
+            this.elements.password.classList.add('is-invalid');
+            this.elements.passwordError.textContent = message;
+            this.elements.passwordError.style.display = 'block';
+        } else {
+            this.elements.globalError.textContent = message;
+            this.elements.globalError.style.display = 'block';
+        }
+    },
+
+    async handleSubmit(e) {
+        e.preventDefault();
+        this.resetErrors();
+        this.elements.btn.disabled = true;
+
+        try {
+            const res = await fetch('/complete_registration_action', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    username: this.elements.username.value,
+                    password: this.elements.password.value
+                })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                window.location.href = '/';
+            } else {
+                const err = (data.error || '').toLowerCase();
+                if (err.includes('именем') || err.includes('username')) this.showError('username', data.error);
+                else if (err.includes('пароль') || err.includes('password')) this.showError('password', data.error);
+                else this.showError('global', data.error || 'Ошибка регистрации');
+            }
+        } catch (e) {
+            this.showError('global', 'Ошибка соединения с сервером');
+        } finally {
+            this.elements.btn.disabled = false;
+        }
+    }
+};
+
+// Инициализация
+TranslationManager.apply();
+RegistrationManager.init();
+</script>
+
+<!-- Эффект снегопада -->
+<style>
+    #snow-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9999; transition: transform 0.1s ease-out; }
+    .snowflake { position: absolute; top: -10px; background: white; border-radius: 50%; user-select: none; pointer-events: none; animation: fall linear infinite; box-shadow: 0 0 5px rgba(255,255,255,0.8); }
+    @keyframes fall { to { transform: translateY(120vh); } }
+    .snow-pile { position: fixed; bottom: 0; left: 0; width: 100%; height: 15px; background: rgba(255, 255, 255, 0.6); filter: blur(8px); z-index: 9998; pointer-events: none; }
+</style>
+<div class="snow-pile"></div>
+<div id="snow-container"></div>
+<script>
+    const SnowEffect = {
+        enabled: true,
+        container: document.getElementById('snow-container'),
+        
+        init() {
+            try {
+                const saved = localStorage.getItem('appSettings');
+                if (saved) {
+                    const settings = JSON.parse(saved);
+                    this.enabled = settings.snow !== false;
+                }
+            } catch(e) {}
+
+            if (!this.enabled) {
+                if (this.container) this.container.style.display = 'none';
+                const pile = document.querySelector('.snow-pile');
+                if (pile) pile.style.display = 'none';
+                return;
+            }
+
+            for(let i=0; i<50; i++) this.createSnowflake(true);
+            setInterval(() => this.createSnowflake(false), 50);
+            
+            document.addEventListener('mousemove', (e) => {
+                const x = (e.clientX / window.innerWidth - 0.5) * 20;
+                const y = (e.clientY / window.innerHeight - 0.5) * 20;
+                this.container.style.transform = `translate(${x}px, ${y}px)`;
+            });
+        },
+
+        createSnowflake(isInit = false) {
+            if (!this.enabled || !this.container) return;
+            const snowflake = document.createElement('div');
+            snowflake.classList.add('snowflake');
+            snowflake.style.left = Math.random() * 100 + 'vw';
+            snowflake.style.opacity = Math.random() * 0.6 + 0.4;
+            const size = Math.random() * 6 + 3 + 'px';
+            snowflake.style.width = size;
+            snowflake.style.height = size;
+            
+            const duration = Math.random() * 5 + 5 + 's';
+            snowflake.style.animationDuration = duration;
+            if (isInit) snowflake.style.top = Math.random() * 100 + 'vh';
+
+            this.container.appendChild(snowflake);
+            setTimeout(() => snowflake.remove(), parseFloat(duration) * 1000);
+        }
+    };
+    SnowEffect.init();
+</script>
+
+</body>
+</html>
