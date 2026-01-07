@@ -737,6 +737,11 @@ def buy_premium():
         # Ссылка на оплату
         url = f"https://pay.freekassa.ru/?m={merchant_id}&oa={amount}&o={order_id}&s={sign}&currency={currency}&em={user_email}&lang=ru"
         
+        # --- ДИАГНОСТИКА ---
+        logger.info("--- DEBUG FREEKASSA URL ---")
+        logger.info(f"Generated URL: {url}")
+        logger.info("---------------------------")
+        
         return redirect(url)
     except Exception as e:
         return render_template('info.html', title='Ошибка оплаты', content=f'Не удалось создать платеж: {str(e)}', icon='exclamation-triangle-fill')
