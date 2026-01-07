@@ -699,7 +699,7 @@ def buy_premium():
         return redirect(url_for('login_page'))
     
     with get_db() as conn:
-        user = conn.execute('SELECT is_premium FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+        user = conn.execute('SELECT is_premium, email FROM users WHERE id = ?', (session['user_id'],)).fetchone()
     
     # Проверяем, есть ли активный премиум
     is_premium = False
@@ -731,8 +731,11 @@ def buy_premium():
         
         sign = PaymentService.generate_signature(merchant_id, amount, secret_word, currency, order_id)
         
+        # Добавляем email пользователя (если есть) и язык интерфейса
+        user_email = user['email'] if user and user['email'] else ''
+        
         # Ссылка на оплату
-        url = f"https://pay.freekassa.ru/?m={merchant_id}&oa={amount}&o={order_id}&s={sign}&currency={currency}"
+        url = f"https://pay.freekassa.ru/?m={merchant_id}&oa={amount}&o={order_id}&s={sign}&currency={currency}&em={user_email}&lang=ru"
         
         return redirect(url)
     except Exception as e:
