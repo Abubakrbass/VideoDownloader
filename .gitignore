@@ -12,3 +12,4 @@ cookies (1).txt
 .vscode/
 .idea/
 secret.key
+*.exe
