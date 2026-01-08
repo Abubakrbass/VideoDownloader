@@ -1072,6 +1072,9 @@ def google_login():
     if not oauth:
         return "Ошибка: Вход через Google не настроен на сервере (отсутствуют ключи).", 500
     redirect_uri = url_for('google_authorize', _external=True)
+    # Принудительно используем HTTPS, если запрос пришел через защищенное соединение (Render)
+    if request.headers.get('X-Forwarded-Proto') == 'https':
+        redirect_uri = redirect_uri.replace('http://', 'https://')
     logger.info(f"Ожидаемый Google redirect_uri: {redirect_uri}")
     return oauth.google.authorize_redirect(redirect_uri)
 
