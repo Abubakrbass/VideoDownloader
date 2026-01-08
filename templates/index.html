@@ -1122,12 +1122,8 @@ async function initApp() {
     const splash = document.getElementById('splash-screen');
     if(!splash) return;
 
-    // 1. Проверяем авторизацию
-    const authData = await checkAuth(); 
-    if (!authData.authenticated) {
-        window.location.href = '/register_page';
-        return;
-    }
+    // 1. Проверяем авторизацию, чтобы обновить кнопки входа/профиля
+    await checkAuth();
 
     // 2. Если авторизован - управляем заставкой
     let isReload = false;
