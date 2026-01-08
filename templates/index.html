@@ -344,7 +344,7 @@ window.translations = {
         btnDownload: 'Сохранить файл', btnShare: 'Поделиться', btnGetPremium: 'Купить Premium', btnPremiumActive: 'Premium Активен',
         qualityBest: 'Лучшее (MP4)', quality1080: '1080p (MP4)', quality720: '720p (MP4)', qualityAudio: 'Аудио (MP3)',
         statusDownloading: 'Скачивание...', statusProcessing: 'Обработка и склеивание...', statusFinished: 'Готово!', statusError: 'Ошибка при скачивании: ',
-        searchingFree: 'Поиск (Free очередь)...', searchingPremium: 'Мгновенный поиск...'
+        searching: 'Поиск...'
     },
     en: {
         title: 'Download Video', searchPlaceholder: 'Paste YouTube link...', searchBtn: 'Search', howTo: '<i class="bi bi-question-circle"></i> How to use?',
@@ -360,7 +360,7 @@ window.translations = {
         btnDownload: 'Save file', btnShare: 'Share', btnGetPremium: 'Get Premium', btnPremiumActive: 'Premium Active',
         qualityBest: 'Best (MP4)', quality1080: '1080p (MP4)', quality720: '720p (MP4)', qualityAudio: 'Audio (MP3)',
         statusDownloading: 'Downloading...', statusProcessing: 'Processing and merging...', statusFinished: 'Done!', statusError: 'Download error: ',
-        searchingFree: 'Searching (Free queue)...', searchingPremium: 'Instant search...'
+        searching: 'Searching...'
     },
     kg: {
         title: 'Видео Жүктөө', searchPlaceholder: 'YouTube шилтемесин коюңуз...', searchBtn: 'Издөө', howTo: '<i class="bi bi-question-circle"></i> Кантип колдонуу керек?',
@@ -376,7 +376,7 @@ window.translations = {
         btnDownload: 'Файлды сактоо', btnShare: 'Бөлүшүү', btnGetPremium: 'Premium алуу', btnPremiumActive: 'Premium Активдүү',
         qualityBest: 'Мыкты (MP4)', quality1080: '1080p (MP4)', quality720: '720p (MP4)', qualityAudio: 'Аудио (MP3)',
         statusDownloading: 'Жүктөлүүдө...', statusProcessing: 'Иштеп чыгуу жана бириктирүү...', statusFinished: 'Даяр!', statusError: 'Жүктөө катасы: ',
-        searchingFree: 'Издөө (Free кезек)...', searchingPremium: 'Тез издөө...'
+        searching: 'Издөө...'
     }
 };
 
@@ -863,7 +863,7 @@ window.translations = {
             const t = window.translations[window.appSettings.lang] || window.translations['ru'];
             const originalText = t.searchBtn;
             
-            btn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> ${lastAuthData.isPremium ? t.searchingPremium : t.searchingFree}`;
+            btn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> ${t.searching}`;
             btn.disabled = true;
 
             try {
