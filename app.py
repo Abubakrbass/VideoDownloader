@@ -860,7 +860,6 @@ def profile():
         return redirect(url_for('logout'))
 
     # Исправлено: проверяем, что ADMIN_EMAIL не пустой, и делаем сравнение нечувствительным к регистру
-    is_admin = (ADMIN_EMAIL and user['email'] and user['email'].strip().lower() == ADMIN_EMAIL.strip().lower())
     
     # Исправлено: используем централизованную функцию проверки Premium
     is_premium = is_user_premium(user)
