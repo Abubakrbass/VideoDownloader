@@ -124,6 +124,7 @@ class RateLimiter:
         self.limits = {
             'global': (60, 60),
             'heavy': (5, 60),
+            'daily_guest': (5, 86400), # 5 скачиваний за 24 часа для гостей
         }
 
     def is_allowed(self, ip, limit_type='global'):
@@ -138,6 +139,12 @@ class RateLimiter:
         
         self.requests[ip].append(now)
         return True
+
+    def get_usage(self, ip, limit_type='global'):
+        now = time.time()
+        _, period = self.limits[limit_type]
+        self.requests[ip] = [t for t in self.requests[ip] if t > now - period]
+        return len(self.requests[ip])
 
 DB_NAME = 'database.db'
 
@@ -348,6 +355,85 @@ class TaskManager:
                     except Exception: pass
         except Exception: pass
 
+class VideoService:
+    """Сервис для получения информации о видео и расчета размеров."""
+    @staticmethod
+    def get_video_info(url, cookies_path=None, proxy=None):
+        ydl_opts = {
+            'quiet': True,
+            'cachedir': False,
+            'extract_flat': 'in_playlist',
+        }
+        if proxy: ydl_opts['proxy'] = proxy
+        if cookies_path and os.path.exists(cookies_path): ydl_opts['cookiefile'] = cookies_path
+
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                return ydl.extract_info(url, download=False)
+        except Exception:
+            # Повторная попытка без аргументов экстрактора
+            if 'extractor_args' in ydl_opts: del ydl_opts['extractor_args']
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                return ydl.extract_info(url, download=False)
+
+    @staticmethod
+    def calculate_sizes(info):
+        formats = info.get('formats', [])
+        duration = info.get('duration')
+        try: duration = float(duration) if duration else 0
+        except: duration = 0
+        
+        def get_size(f):
+            size = f.get('filesize') or f.get('filesize_approx')
+            if size: return size
+            # Эвристика размера по битрейту
+            if duration:
+                tbr = f.get('tbr')
+                if tbr: return int(tbr * 1000 / 8 * duration)
+                vbr = f.get('vbr')
+                abr = f.get('abr')
+                if vbr or abr: return int(((vbr or 0) + (abr or 0)) * 1000 / 8 * duration)
+            return 0
+
+        audio_size = 0
+        for f in formats:
+            if f.get('acodec') != 'none' and f.get('vcodec') == 'none':
+                audio_size = max(audio_size, get_size(f))
+        
+        def calc_total_size(height):
+            # 1. Ищем готовый файл (видео+аудио)
+            best_premerged = 0
+            for f in formats:
+                h = f.get('height', 0) or 0
+                try: h = int(h)
+                except: h = 0
+                if abs(h - height) < 20 and f.get('vcodec') != 'none' and f.get('acodec') != 'none':
+                    best_premerged = max(best_premerged, get_size(f))
+            
+            if best_premerged > 0: return best_premerged
+
+            # 2. Если нет, считаем видео + аудио отдельно
+            v_size_only = 0
+            for f in formats:
+                h = f.get('height', 0) or 0
+                try: h = int(h)
+                except: h = 0
+                if abs(h - height) < 20 and f.get('vcodec') != 'none' and f.get('acodec') == 'none':
+                    v_size_only = max(v_size_only, get_size(f))
+            
+            return v_size_only + audio_size if v_size_only > 0 else 0
+
+        def fmt_size(bytes_val):
+            if not bytes_val: return "?"
+            return f"{bytes_val / (1024 * 1024):.1f} MB"
+
+        sizes = {}
+        sizes['best'] = '👑 ' + fmt_size(calc_total_size(1080) or calc_total_size(720))
+        sizes['1080'] = '👑 ' + fmt_size(calc_total_size(1080))
+        sizes['720'] = fmt_size(calc_total_size(720))
+        sizes['audio'] = fmt_size(audio_size)
+        return sizes
+
 class UserRepository:
     """Инкапсулирует логику работы с пользователями."""
     @staticmethod
@@ -456,6 +542,11 @@ def index():
         if user and not is_premium:
             downloads_today = UserRepository.check_daily_limit(session['user_id'])
             if downloads_today >= 5: limit_reached = True
+    else:
+        # Для гостей считаем по IP
+        downloads_today = limiter.get_usage(request.remote_addr, 'daily_guest')
+        if downloads_today >= 5: limit_reached = True
+
     return render_template('index.html', downloads_today=downloads_today, limit_reached=limit_reached, is_premium=is_premium)
 
 @app.route('/premium')
@@ -1572,6 +1663,10 @@ def start_download():
         if 'user_id' in session:
             if UserRepository.check_daily_limit(session['user_id']) >= 5:
                 return jsonify({'error': 'Дневной лимит исчерпан (5/5). Купите Premium для безлимита!'}), 403
+        else:
+            # Ограничение для гостей по IP
+            if not limiter.is_allowed(request.remote_addr, 'daily_guest'):
+                return jsonify({'error': 'Дневной лимит для гостей исчерпан (5/5). Зарегистрируйтесь или купите Premium!'}), 403
         
         # Ограничение: Плейлисты только для Premium
         if 'list=' in video_url:
@@ -1601,6 +1696,18 @@ def start_download():
     # Запускаем скачивание в отдельном потоке
     thread = threading.Thread(target=download_service.background_download, args=(task_id, video_url, quality, user_id, ratelimit, limit_height, sleep_interval))
     thread.start()
+    
+    # Сохраняем в историю (только для авторизованных)
+    if 'user_id' in session:
+        try:
+            with get_db() as conn:
+                # Пытаемся получить название из кэша, иначе используем URL
+                cached = task_manager.get_cached_info(video_url)
+                title = cached['title'] if cached else video_url
+                conn.execute('INSERT INTO history (user_id, title, url) VALUES (?, ?, ?)', (session['user_id'], title, video_url))
+                conn.commit()
+        except Exception as e:
+            logger.error(f"Ошибка сохранения истории: {e}")
     
     return jsonify({'task_id': task_id})
 
