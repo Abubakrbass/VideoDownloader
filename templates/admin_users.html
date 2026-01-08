@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Админ-панель</title>
+    <!-- CSRF Token -->
+    <meta name="csrf-token" content="{{ csrf_token() if csrf_token else '' }}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -242,6 +244,10 @@ const confirmModalElement = document.getElementById('confirmModal');
 const confirmModal = new bootstrap.Modal(confirmModalElement);
 let pendingAction = null;
 
+const Utils = {
+    getCsrfToken: () => document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'),
+};
+
 // Универсальная функция для API запросов
 async function apiRequest(url, method = 'GET', body = null) {
     try {
@@ -249,7 +255,7 @@ async function apiRequest(url, method = 'GET', body = null) {
             method: method,
             headers: {
                 'Content-Type': 'application/json',
-                // 'X-CSRFToken': '{{ csrf_token() if csrf_token else "" }}' // Раскомментировать при добавлении Flask-WTF
+                'X-CSRFToken': Utils.getCsrfToken()
             }
         };
         if (body) options.body = JSON.stringify(body);
