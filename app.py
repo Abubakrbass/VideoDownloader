@@ -25,6 +25,8 @@ from email.mime.text import MIMEText
 from werkzeug.middleware.proxy_fix import ProxyFix
 from collections import defaultdict
 from dotenv import load_dotenv
+from flask_wtf.csrf import CSRFProtect
+from markupsafe import escape
 import hashlib
 from email.mime.multipart import MIMEMultipart
 from email.mime.image import MIMEImage
@@ -47,7 +49,11 @@ load_dotenv()
 try:
     import static_ffmpeg
     # Автоматически скачивает и добавляет FFmpeg в путь (нужно для Render)
-    static_ffmpeg.add_paths()
+    # Используем threading, чтобы не блокировать eventlet loop при скачивании
+    def init_ffmpeg():
+        try: static_ffmpeg.add_paths()
+        except: pass
+    threading.Thread(target=init_ffmpeg).start()
 except Exception as e:
     logger.error(f"static-ffmpeg ошибка или не найден: {e}")
 
@@ -63,6 +69,9 @@ if COOKIES_CONTENT:
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 socketio = SocketIO(app, cors_allowed_origins="*")
+
+# Включаем CSRF защиту
+csrf = CSRFProtect(app)
 
 # --- БЕЗОПАСНОСТЬ СЕССИЙ ---
 # Ключ берется из .env. Если его нет, генерируем и сохраняем в файл, чтобы сессии не слетали при перезапуске.
@@ -124,7 +133,6 @@ class RateLimiter:
         self.limits = {
             'global': (60, 60),
             'heavy': (5, 60),
-            'daily_guest': (5, 86400), # 5 скачиваний за 24 часа для гостей
         }
 
     def is_allowed(self, ip, limit_type='global'):
@@ -139,12 +147,6 @@ class RateLimiter:
         
         self.requests[ip].append(now)
         return True
-
-    def get_usage(self, ip, limit_type='global'):
-        now = time.time()
-        _, period = self.limits[limit_type]
-        self.requests[ip] = [t for t in self.requests[ip] if t > now - period]
-        return len(self.requests[ip])
 
 DB_NAME = 'database.db'
 
@@ -291,6 +293,120 @@ def add_security_headers(response):
     return response
 
 # --- СЕРВИСЫ И МЕНЕДЖЕРЫ (SOLID) ---
+
+class EmailService:
+    """Сервис для отправки уведомлений и писем."""
+    @staticmethod
+    def send_feedback(text, contact):
+        try:
+            logo_path = os.path.join('static', 'logo.png')
+            logo_data = None
+            if os.path.exists(logo_path):
+                with open(logo_path, 'rb') as f:
+                    logo_data = f.read()
+
+            # Экранируем ввод для защиты от XSS/Injection в письмах
+            safe_text = escape(text).replace('\n', '<br>')
+            safe_contact = escape(contact)
+
+            # 1. Письмо АДМИНИСТРАТОРУ
+            msg_root = MIMEMultipart('related')
+            msg_root['Subject'] = "Новое сообщение с сайта Video Downloader"
+            msg_root['From'] = SMTP_EMAIL
+            msg_root['To'] = ADMIN_EMAIL
+
+            msg_alternative = MIMEMultipart('alternative')
+            msg_root.attach(msg_alternative)
+            
+            text_body = f"Сообщение от пользователя:\n{text}\n\nКонтакт для связи: {contact}"
+            msg_alternative.attach(MIMEText(text_body, 'plain', 'utf-8'))
+
+            html_body = f"""
+            <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <img src="cid:logo_image" alt="Logo" style="width: 60px;">
+                    <h2 style="color: #212529;">Новое сообщение</h2>
+                </div>
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6;">
+                    {safe_text}
+                </div>
+                <p style="margin-top: 20px;"><b>От кого:</b> {safe_contact}</p>
+                <div style="text-align: center; margin-top: 30px;">
+                    <a href="mailto:{safe_contact}?subject=Re: Ваш вопрос" style="background: #0d6efd; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Ответить</a>
+                </div>
+            </div>
+            """
+            msg_alternative.attach(MIMEText(html_body, 'html', 'utf-8'))
+
+            if logo_data:
+                img = MIMEImage(logo_data)
+                img.add_header('Content-ID', '<logo_image>')
+                msg_root.attach(img)
+            
+            # 2. Письмо ПОЛЬЗОВАТЕЛЮ (Автоответ)
+            reply_root = MIMEMultipart('related')
+            reply_root['Subject'] = "Мы получили ваше сообщение | Video Downloader"
+            reply_root['From'] = SMTP_EMAIL
+            reply_root['To'] = contact
+
+            reply_alternative = MIMEMultipart('alternative')
+            reply_root.attach(reply_alternative)
+            
+            reply_html = f"""
+            <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; text-align: center;">
+                <img src="cid:logo_image" alt="Logo" style="width: 80px; margin-bottom: 20px;">
+                <h2 style="color: #212529;">Спасибо за обращение!</h2>
+                <p>Мы получили ваше сообщение и ответим в течение 24 часов.</p>
+                <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;">
+                <a href="{url_for('index', _external=True)}" style="color: #0d6efd; text-decoration: none;">Вернуться на сайт</a>
+            </div>
+            """
+            reply_alternative.attach(MIMEText(reply_html, 'html', 'utf-8'))
+
+            if logo_data:
+                img = MIMEImage(logo_data)
+                img.add_header('Content-ID', '<logo_image>')
+                reply_root.attach(img)
+            
+            with smtplib.SMTP('smtp.gmail.com', 587) as server:
+                server.starttls()
+                server.login(SMTP_EMAIL, SMTP_PASSWORD)
+                server.send_message(msg_root)
+                server.send_message(reply_root)
+                
+            return True
+        except Exception as e:
+            logger.error(f"Email error: {e}")
+            raise e
+
+class PaymentService:
+    """Сервис для работы с платежами."""
+    @staticmethod
+    def generate_signature(merchant_id, amount, secret, currency, order_id):
+        sign_str = f"{merchant_id}:{amount}:{secret}:{currency}:{order_id}"
+        return hashlib.md5(sign_str.encode('utf-8')).hexdigest()
+
+    @staticmethod
+    def validate_signature(merchant_id, amount, secret, order_id, received_sign):
+        # SECURITY: MD5 - требование FreeKassa.
+        sign_str = f"{merchant_id}:{amount}:{secret}:{order_id}"
+        my_sign = hashlib.md5(sign_str.encode('utf-8')).hexdigest()
+        return my_sign == received_sign
+
+    @staticmethod
+    def get_amount_and_currency(req_currency):
+        if req_currency == 'USD':
+            return "2.99", "USD"
+        return "199", "RUB"
+
+    @staticmethod
+    def validate_amount(amount):
+        try:
+            val = float(amount)
+            # Разрешаем 199 RUB или 2.99 USD (с учетом погрешности float)
+            return (198 <= val <= 200) or (2.9 <= val <= 3.1)
+        except ValueError:
+            return False
 
 class TaskManager:
     """Управляет состоянием задач и очисткой."""
@@ -444,7 +560,9 @@ class UserRepository:
     @staticmethod
     def is_premium(user_row):
         if not user_row: return False
-        if ADMIN_EMAIL and user_row['email'] == ADMIN_EMAIL: return True
+        # Безопасная проверка email админа
+        user_email = user_row['email'] or ''
+        if ADMIN_EMAIL and user_email.strip().lower() == ADMIN_EMAIL.strip().lower(): return True
         if user_row['is_premium']: return True
         if user_row['premium_until']:
             try:
@@ -499,10 +617,10 @@ class DownloadService:
                 'ratelimit': ratelimit,
                 'sleep_interval': sleep_interval,
                 'ffmpeg_location': ffmpeg_path,
+                'cookiefile': cookies_path if os.path.exists(cookies_path) else None
             }
-            if cookies_path and os.path.exists(cookies_path):
-                ydl_opts['cookiefile'] = cookies_path
-
+            
+            # Настройка форматов (упрощено для краткости)
             if qual == 'audio':
                 ydl_opts['format'] = 'bestaudio/best'
             elif ffmpeg_path:
@@ -512,10 +630,37 @@ class DownloadService:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
 
-            # Обработка файлов (ZIP или move) - логика сохранена, но код стал чище
-            # ... (код обработки файлов)
+            # --- Обработка результатов ---
+            files = [f for f in os.listdir(task_dir) if not f.startswith('.')]
+            if not files:
+                raise Exception("Файлы не найдены после скачивания")
             
-            self.tm.update_task(tid, progress='100', status='finished', filename='path_to_file') # Placeholder
+            time.sleep(1) # Даем системе время освободить файлы
+
+            final_filename = None
+            download_name = None
+            
+            # Если файлов много или это был плейлист -> делаем ZIP
+            is_playlist = info.get('_type') == 'playlist' or len(files) > 1
+            
+            if is_playlist:
+                self.tm.update_task(tid, status='processing')
+                archive_name = f"playlist_{int(time.time())}"
+                archive_path = os.path.join(self.base_dir, DOWNLOAD_FOLDER, archive_name)
+                shutil.make_archive(archive_path, 'zip', task_dir)
+                final_filename = archive_path + '.zip'
+                download_name = f"{archive_name}.zip"
+                shutil.rmtree(task_dir, onerror=remove_readonly)
+            else:
+                src_file = os.path.join(task_dir, files[0])
+                safe_filename = f"{tid}_{files[0]}"
+                final_filename = os.path.join(self.base_dir, DOWNLOAD_FOLDER, safe_filename)
+                if os.path.exists(final_filename): os.remove(final_filename)
+                shutil.move(src_file, final_filename)
+                download_name = files[0]
+                shutil.rmtree(task_dir, onerror=remove_readonly)
+            
+            self.tm.update_task(tid, progress='100', status='finished', filename=final_filename, download_name=download_name)
 
         except Exception as e:
             logger.error(f"Download error: {e}")
@@ -542,11 +687,6 @@ def index():
         if user and not is_premium:
             downloads_today = UserRepository.check_daily_limit(session['user_id'])
             if downloads_today >= 5: limit_reached = True
-    else:
-        # Для гостей считаем по IP
-        downloads_today = limiter.get_usage(request.remote_addr, 'daily_guest')
-        if downloads_today >= 5: limit_reached = True
-
     return render_template('index.html', downloads_today=downloads_today, limit_reached=limit_reached, is_premium=is_premium)
 
 @app.route('/premium')
@@ -564,7 +704,7 @@ def buy_premium():
         return redirect(url_for('login_page'))
     
     with get_db() as conn:
-        user = conn.execute('SELECT is_premium FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+        user = conn.execute('SELECT is_premium, email FROM users WHERE id = ?', (session['user_id'],)).fetchone()
     
     # Проверяем, есть ли активный премиум
     is_premium = False
@@ -588,62 +728,45 @@ def buy_premium():
         merchant_id = FREEKASSA_MERCHANT_ID
         logger.info(f"Использую ID магазина: {merchant_id}")
         secret_word = FREEKASSA_SECRET_1
-        
-        # Выбор валюты и суммы
-        req_currency = request.args.get('currency', 'RUB')
-        if req_currency == 'USD':
-            amount = "2.99"
-            currency = "USD"
-        else:
-            amount = "199"
-            currency = "RUB"
+        amount, currency = PaymentService.get_amount_and_currency(request.args.get('currency', 'RUB'))
         
         # Генерируем уникальный ID заказа: user_id + timestamp
         # Это нужно, чтобы FreeKassa различала попытки оплаты
         order_id = f"{session['user_id']}-{int(time.time())}"
         
-        # Формируем подпись: md5(merchant_id:oa:secret_word_1:currency:o)
-        sign_str = f"{merchant_id}:{amount}:{secret_word}:{currency}:{order_id}"
-        sign = hashlib.md5(sign_str.encode('utf-8')).hexdigest()
+        sign = PaymentService.generate_signature(merchant_id, amount, secret_word, currency, order_id)
+        
+        # Добавляем email пользователя (если есть) и язык интерфейса
+        user_email = user['email'] if user and user['email'] else ''
         
         # Ссылка на оплату
-        url = f"https://pay.freekassa.ru/?m={merchant_id}&oa={amount}&o={order_id}&s={sign}&currency={currency}"
+        url = f"https://pay.freekassa.ru/?m={merchant_id}&oa={amount}&o={order_id}&s={sign}&currency={currency}&em={user_email}&lang=ru"
+        
+        # --- ДИАГНОСТИКА ---
+        logger.info("--- DEBUG FREEKASSA URL ---")
+        logger.info(f"Generated URL: {url}")
+        logger.info("---------------------------")
         
         return redirect(url)
     except Exception as e:
         return render_template('info.html', title='Ошибка оплаты', content=f'Не удалось создать платеж: {str(e)}', icon='exclamation-triangle-fill')
 
 # Обработчик уведомлений от FreeKassa (Callback)
+# Отключаем CSRF для callback-ов от платежных систем
 @app.route('/payment/freekassa/callback', methods=['POST'])
+@csrf.exempt 
 def freekassa_callback():
     merchant_id = request.form.get('MERCHANT_ID')
     amount = request.form.get('AMOUNT')
     merchant_order_id = request.form.get('MERCHANT_ORDER_ID')
     sign = request.form.get('SIGN')
     
-    # Проверяем подпись: md5(merchant_id:amount:secret_word_2:merchant_order_id)
-    # Важно: FreeKassa может прислать amount как "199.00", даже если мы слали "199"
-    # Но обычно для проверки подписи нужно использовать то, что пришло в запросе
-    
     logger.info(f"FreeKassa Callback: {request.form}")
     
-    # SECURITY: Подпись проверяется с помощью MD5 в соответствии с требованиями API FreeKassa.
-    # Это известный слабый алгоритм. Риск частично снижается за счет проверки суммы платежа
-    # и использования отдельного секретного слова (SECRET_2) для callback-уведомлений.
-    secret_word_2 = FREEKASSA_SECRET_2
-    sign_str = f"{merchant_id}:{amount}:{secret_word_2}:{merchant_order_id}"
-    my_sign = hashlib.md5(sign_str.encode('utf-8')).hexdigest()
-    
-    if sign != my_sign:
+    if not PaymentService.validate_signature(merchant_id, amount, FREEKASSA_SECRET_2, merchant_order_id, sign):
         return "Wrong signature", 400
     
-    # Проверка суммы платежа (защита от подмены стоимости)
-    try:
-        val = float(amount)
-        # Разрешаем 199 RUB или 2.99 USD (проверяем диапазоны, чтобы избежать ошибок округления)
-        if not (198 <= val <= 200 or 2.9 <= val <= 3.1):
-            return "Wrong amount", 400
-    except ValueError:
+    if not PaymentService.validate_amount(amount):
         logger.error("Неверный формат суммы")
         return "Wrong amount format", 400
     
@@ -713,95 +836,7 @@ def feedback():
             return render_template('feedback.html', error="Пожалуйста, введите корректный Email адрес")
             
         try:
-            # --- ПОДГОТОВКА ЛОГОТИПА (ВСТРАИВАНИЕ) ---
-            # Читаем файл логотипа, чтобы встроить его в письмо
-            logo_path = os.path.join('static', 'logo.png')
-            logo_data = None
-            if os.path.exists(logo_path):
-                with open(logo_path, 'rb') as f:
-                    logo_data = f.read()
-
-            # --- 1. Письмо АДМИНИСТРАТОРУ (Вам) ---
-            msg_root = MIMEMultipart('related')
-            msg_root['Subject'] = "Новое сообщение с сайта Video Downloader"
-            msg_root['From'] = SMTP_EMAIL
-            msg_root['To'] = ADMIN_EMAIL
-
-            msg_alternative = MIMEMultipart('alternative')
-            msg_root.attach(msg_alternative)
-
-            # Текстовая версия (если HTML не работает)
-            text_body = f"Сообщение от пользователя:\n{text}\n\nКонтакт для связи: {contact}"
-            msg_alternative.attach(MIMEText(text_body, 'plain', 'utf-8'))
-
-            # HTML версия
-            html_body = f"""
-            <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
-                <div style="text-align: center; margin-bottom: 20px;">
-                    <img src="cid:logo_image" alt="Logo" style="width: 60px;">
-                    <h2 style="color: #212529;">Новое сообщение</h2>
-                </div>
-                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6;">
-                    {text}
-                </div>
-                <p style="margin-top: 20px;"><b>От кого:</b> {contact}</p>
-                <div style="text-align: center; margin-top: 30px;">
-                    <a href="mailto:{contact}?subject=Re: Ваш вопрос" style="background: #0d6efd; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Ответить</a>
-                </div>
-            </div>
-            """
-            msg_alternative.attach(MIMEText(html_body, 'html', 'utf-8'))
-
-            # Прикрепляем логотип к письму админа
-            if logo_data:
-                img = MIMEImage(logo_data)
-                img.add_header('Content-ID', '<logo_image>')
-                msg_root.attach(img)
-            
-            # --- 2. Письмо ПОЛЬЗОВАТЕЛЮ (Автоответ) ---
-            reply_root = MIMEMultipart('related')
-            reply_root['Subject'] = "Мы получили ваше сообщение | Video Downloader"
-            reply_root['From'] = SMTP_EMAIL
-            reply_root['To'] = contact
-
-            reply_alternative = MIMEMultipart('alternative')
-            reply_root.attach(reply_alternative)
-
-            reply_text = "Здравствуйте!\nМы получили ваше сообщение. Спасибо за обращение!\n\nС уважением,\nКоманда Video Downloader"
-            reply_alternative.attach(MIMEText(reply_text, 'plain', 'utf-8'))
-
-            reply_html = f"""
-            <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; text-align: center;">
-                <img src="cid:logo_image" alt="Logo" style="width: 80px; margin-bottom: 20px;">
-                <h2 style="color: #212529;">Спасибо за обращение!</h2>
-                <p style="font-size: 16px; line-height: 1.5;">
-                    Здравствуйте!<br>
-                    Мы получили ваше сообщение и уже передали его нашей команде поддержки.<br>
-                    Обычно мы отвечаем в течение 24 часов.
-                </p>
-                <br>
-                <p style="color: #6c757d; font-size: 14px;">
-                    С уважением,<br>
-                    <b>Команда Video Downloader</b>
-                </p>
-                <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;">
-                <a href="{url_for('index', _external=True)}" style="color: #0d6efd; text-decoration: none;">Вернуться на сайт</a>
-            </div>
-            """
-            reply_alternative.attach(MIMEText(reply_html, 'html', 'utf-8'))
-
-            # Прикрепляем логотип к письму пользователя
-            if logo_data:
-                img = MIMEImage(logo_data)
-                img.add_header('Content-ID', '<logo_image>')
-                reply_root.attach(img)
-            
-            with smtplib.SMTP('smtp.gmail.com', 587) as server:
-                server.starttls()
-                server.login(SMTP_EMAIL, SMTP_PASSWORD)
-                server.send_message(msg_root)   # Админу
-                server.send_message(reply_root) # Пользователю
-                
+            EmailService.send_feedback(text, contact)
             return render_template('feedback.html', success=True)
         except smtplib.SMTPAuthenticationError:
             logger.error(f"ОШИБКА АВТОРИЗАЦИИ для {SMTP_EMAIL}: Google не принял пароль.")
@@ -826,10 +861,10 @@ def profile():
         return redirect(url_for('logout'))
 
     # Исправлено: проверяем, что ADMIN_EMAIL не пустой, и делаем сравнение нечувствительным к регистру
-    is_admin = (ADMIN_EMAIL and user['email'] and user['email'].strip().lower() == ADMIN_EMAIL.strip().lower())
+    is_admin = (ADMIN_EMAIL and user['email'] and str(user['email']).strip().lower() == str(ADMIN_EMAIL).strip().lower())
     
     # Исправлено: используем централизованную функцию проверки Premium
-    is_premium = is_user_premium(user)
+    is_premium = UserRepository.is_premium(user)
     
     premium_until_date = None
     if is_premium and not is_admin and user['premium_until']:
@@ -1031,16 +1066,21 @@ def logout():
     return redirect(url_for('index'))
 
 @app.route('/login/google')
+@csrf.exempt # Google callback может не иметь CSRF токена
 def google_login():
     if not HAS_AUTHLIB:
         return "Ошибка: Библиотека Authlib не установлена на сервере.", 500
     if not oauth:
         return "Ошибка: Вход через Google не настроен на сервере (отсутствуют ключи).", 500
     redirect_uri = url_for('google_authorize', _external=True)
-    logger.debug(f"Ожидаемый Google redirect_uri: {redirect_uri}")
+    # Принудительно используем HTTPS, если запрос пришел через защищенное соединение (Render)
+    if request.headers.get('X-Forwarded-Proto') == 'https':
+        redirect_uri = redirect_uri.replace('http://', 'https://')
+    logger.info(f"Ожидаемый Google redirect_uri: {redirect_uri}")
     return oauth.google.authorize_redirect(redirect_uri)
 
 @app.route('/login/google/callback')
+@csrf.exempt
 def google_authorize():
     if not HAS_AUTHLIB or not oauth:
         return "Ошибка: Вход через Google не настроен на сервере.", 500
@@ -1478,10 +1518,7 @@ def get_info():
     if not url:
         return jsonify({'error': 'Пустая ссылка'}), 400
     
-    # --- КЭШ ДЛЯ УСКОРЕНИЯ (Работает для всех, но Premium получает данные мгновенно без задержки ниже) ---
     cached_data = task_manager.get_cached_info(url)
-    # Логика задержки для Free остается ниже
-
     try:
         base_dir = os.path.dirname(os.path.abspath(__file__))
         cookies_path = os.path.join(base_dir, 'cookies.txt')
@@ -1508,7 +1545,7 @@ def get_info():
             return jsonify(cached_data)
 
         info = VideoService.get_video_info(url, cookies_path, PROXY_URL)
-
+            
         if info.get('age_limit') is not None and info.get('age_limit') >= 18:
             return jsonify({'error': 'Скачивание видео с возрастным ограничением (18+) запрещено.'}), 400
 
@@ -1537,15 +1574,128 @@ def get_info():
                 }
             })
 
-        formats = info.get('formats', [])
-        duration = info.get('duration')
-        # Приводим длительность к числу, чтобы избежать ошибок
+        sizes = VideoService.calculate_sizes(info)
+
+        duration_str = info.get('duration_string', '')
         if duration:
-            try: duration = float(duration)
-            except: duration = 0
+            try:
+                d = int(duration)
+                h = d // 3600
+                m = (d % 3600) // 60
+                s = d % 60
+                
+                parts = []
+                if h > 0: parts.append(f"{h} h")
+                if m > 0: parts.append(f"{m} min")
+                if s > 0 or (h==0 and m==0): parts.append(f"{s} sec")
+                
+                duration_str = " ".join(parts)
+            except: pass
+
+        result_data = {
+            'title': info.get('title', 'Без названия'),
+            'thumbnail': info.get('thumbnail', ''),
+            'duration': duration_str,
+            'sizes': sizes  # Отправляем все размеры
+        }
         
-        def get_size(f):
-            size = f.get('filesize') or f.get('filesize_approx')
+        # Сохраняем в кэш
+        task_manager.cache_info(url, result_data)
+        
+        return jsonify(result_data)
+    except Exception as e:
+        return jsonify({'error': get_friendly_error(e)}), 500
+
+@app.route('/start_download', methods=['POST'])
+def start_download():
+    # Ограничение частоты скачиваний (защита сервера от перегрузки)
+    if check_limit('heavy'):
+        return jsonify({'error': 'Слишком много одновременных загрузок. Подождите минуту.'}), 429
+
+    video_url = request.form.get('url')
+    quality = request.form.get('quality', 'best') # Получаем выбранное качество
+    user_id = session.get('user_id') # Получаем ID пользователя, если он вошел
+    
+    if not video_url:
+        return jsonify({'error': "Пожалуйста, вставьте ссылку!"}), 400
+
+    # --- ЛОГИКА PREMIUM И ЛИМИТОВ ---
+    is_premium = False
+    if 'user_id' in session:
+        with get_db() as conn:
+            user = UserRepository.get_user(session['user_id'])
+        is_premium = UserRepository.is_premium(user)
+
+    # 2. Настройки ограничений
+    ratelimit = None     # Лимит скорости (None = безлимит)
+    limit_height = None  # Лимит качества (None = любое)
+    sleep_interval = 0   # Пауза между фрагментами (0 для Premium)
+
+    if not is_premium:
+        # Ограничение: 5 скачиваний в день
+        if 'user_id' in session:
+            if UserRepository.check_daily_limit(session['user_id']) >= 5:
+                return jsonify({'error': 'Дневной лимит исчерпан (5/5). Купите Premium для безлимита!'}), 403
+        
+        # Ограничение: Плейлисты только для Premium
+        if 'list=' in video_url:
+             return jsonify({'error': 'Скачивание плейлистов доступно только в Premium. Для скачивания одного видео удалите "list=..." из ссылки.'}), 403
+
+        # Ограничение: Блокируем Premium качества
+        if quality == 'best':
+            return jsonify({'error': 'Лучшее качество (Original) доступно только в Premium. Выберите 720p.'}), 403
+        if quality == '1080':
+            return jsonify({'error': 'Качество 1080p доступно только в Premium'}), 403
+        
+        # Ограничение скорости для Free тарифа
+        ratelimit = 500 * 1024  # 500 KB/sec (Сделали медленнее, чтобы разница была заметна)
+        # Ограничение качества для Free тарифа (даже если выбрано 'best' или другое)
+        limit_height = 720
+        sleep_interval = 2 # Пауза 2 сек между фрагментами (замедляет загрузку)
+        
+        # Искусственная задержка перед стартом
+        time.sleep(2)
+    # --------------------------------
+
+    # Запускаем очистку старых файлов перед началом новой задачи
+    task_manager.cleanup()
+
+    task_id = task_manager.create_task()
+
+    # Запускаем скачивание в отдельном потоке
+    thread = threading.Thread(target=download_service.background_download, args=(task_id, video_url, quality, user_id, ratelimit, limit_height, sleep_interval))
+    thread.start()
+    
+    return jsonify({'task_id': task_id})
+
+@app.route('/progress/<task_id>')
+def get_progress(task_id):
+    task = task_manager.get_task(task_id)
+    if not task:
+        return jsonify({'error': 'Task not found'}), 404
+    return jsonify(task)
+
+@app.route('/get_file/<task_id>')
+def get_file(task_id):
+    task = task_manager.get_task(task_id)
+    if not task or not task['filename']:
+        return "Файл не найден (задача истекла или не существует)", 404
+
+    try:
+        if not os.path.exists(task['filename']):
+            logger.error(f"File missing on disk: {task['filename']}")
+            return "Файл физически отсутствует на сервере (возможно, был удален)", 404
+
+        # Отдаем файл с красивым именем (без ID в начале)
+        return send_file(task['filename'], as_attachment=True, download_name=task.get('download_name'))
+    except Exception as e:
+        logger.error(f"Send file error: {e}")
+        return f"Ошибка отправки файла: {e}", 500
+if __name__ == '__main__':
+    # Настройки для запуска в интернете (Render, Heroku и т.д.)
+    port = int(os.environ.get("PORT", 5000))
+    debug_mode = os.environ.get("DEBUG", "False").lower() == "true"
+    socketio.run(app, host='0.0.0.0', port=port, debug=debug_mode, allow_unsafe_werkzeug=debug_mode)
             if size: return size
             if f.get('tbr') and duration:
                 return int(f['tbr'] * 1000 / 8 * duration)
@@ -1553,6 +1703,7 @@ def get_info():
                 abr = f.get('abr') or 0
                 return int((f['vbr'] + abr) * 1000 / 8 * duration)
             return 0
+        sizes = VideoService.calculate_sizes(info)
 
         audio_size = 0
         for f in formats:
@@ -1723,10 +1874,20 @@ def get_file(task_id):
     task = task_manager.get_task(task_id)
     if not task or not task['filename']:
         return "Файл не найден", 404
+        return "Файл не найден (задача истекла или не существует)", 404
 
     # Отдаем файл с красивым именем (без ID в начале)
     return send_file(task['filename'], as_attachment=True, download_name=task.get('download_name'))
+    try:
+        if not os.path.exists(task['filename']):
+            logger.error(f"File missing on disk: {task['filename']}")
+            return "Файл физически отсутствует на сервере (возможно, был удален)", 404
 
+        # Отдаем файл с красивым именем (без ID в начале)
+        return send_file(task['filename'], as_attachment=True, download_name=task.get('download_name'))
+    except Exception as e:
+        logger.error(f"Send file error: {e}")
+        return f"Ошибка отправки файла: {e}", 500
 if __name__ == '__main__':
     # Настройки для запуска в интернете (Render, Heroku и т.д.)
     port = int(os.environ.get("PORT", 5000))
