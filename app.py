@@ -1008,6 +1008,9 @@ def register():
     if not username or not password:
         return jsonify({'error': 'Заполните все поля'}), 400
     
+    if len(password) < 6:
+        return jsonify({'error': 'Пароль должен быть не менее 6 символов'}), 400
+    
     if email and not re.match(r"[^@]+@[^@]+\.[^@]+", email):
         return jsonify({'error': 'Введите корректный Email адрес'}), 400
 
@@ -1576,6 +1579,7 @@ def get_info():
 
         sizes = VideoService.calculate_sizes(info)
 
+        duration = info.get('duration')
         duration_str = info.get('duration_string', '')
         if duration:
             try:
