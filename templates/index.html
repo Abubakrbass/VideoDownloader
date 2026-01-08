@@ -872,7 +872,7 @@ window.translations = {
                     body: formData,
                     headers: { 'X-CSRFToken': Utils.getCsrfToken() }
                 });
-                const data = await res.json();
+                const data = await response.json();
 
                 if (response.ok) {
                     this.renderInfo(data, url, t);
