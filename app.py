@@ -561,7 +561,9 @@ class UserRepository:
     @staticmethod
     def is_premium(user_row):
         if not user_row: return False
-        if ADMIN_EMAIL and user_row['email'] == ADMIN_EMAIL: return True
+        # Безопасная проверка email админа
+        user_email = user_row['email'] or ''
+        if ADMIN_EMAIL and user_email.strip().lower() == ADMIN_EMAIL.strip().lower(): return True
         if user_row['is_premium']: return True
         if user_row['premium_until']:
             try:
@@ -860,9 +862,10 @@ def profile():
         return redirect(url_for('logout'))
 
     # Исправлено: проверяем, что ADMIN_EMAIL не пустой, и делаем сравнение нечувствительным к регистру
+    is_admin = (ADMIN_EMAIL and user['email'] and str(user['email']).strip().lower() == str(ADMIN_EMAIL).strip().lower())
     
     # Исправлено: используем централизованную функцию проверки Premium
-    is_premium = is_user_premium(user)
+    is_premium = UserRepository.is_premium(user)
     
     premium_until_date = None
     if is_premium and not is_admin and user['premium_until']:
