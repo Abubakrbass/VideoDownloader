@@ -49,7 +49,11 @@ load_dotenv()
 try:
     import static_ffmpeg
     # Автоматически скачивает и добавляет FFmpeg в путь (нужно для Render)
-    static_ffmpeg.add_paths()
+    # Используем threading, чтобы не блокировать eventlet loop при скачивании
+    def init_ffmpeg():
+        try: static_ffmpeg.add_paths()
+        except: pass
+    threading.Thread(target=init_ffmpeg).start()
 except Exception as e:
     logger.error(f"static-ffmpeg ошибка или не найден: {e}")
 
