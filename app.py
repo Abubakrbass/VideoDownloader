@@ -482,7 +482,6 @@ class VideoService:
         }
         if proxy: ydl_opts['proxy'] = proxy
         if cookies_path and os.path.exists(cookies_path): ydl_opts['cookiefile'] = cookies_path
-        else: ydl_opts['cookiesfrombrowser'] = ('chrome',)
 
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
