@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ 'Вход' if mode == 'login' else 'Регистрация' }}</title>
+    <!-- CSRF Token -->
+    <meta name="csrf-token" content="{{ csrf_token() if csrf_token else '' }}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&display=swap" rel="stylesheet">
@@ -33,7 +35,7 @@
 
 <!-- Логотип слева сверху -->
 <div class="brand-logo">
-    <img src="/static/logo.png" alt="Logo" onerror="this.style.display='none'">
+    <img src="/static/logo.png" alt="Logo" onerror="this.outerHTML='<i class=\'bi bi-play-circle-fill text-danger fs-2 me-2\'></i>'">
     Video Downloader
 </div>
 
@@ -43,6 +45,7 @@
     <div class="mb-3">
         <label class="form-label" id="lblUsername">Имя пользователя</label>
         <input type="text" id="username" class="form-control">
+        <div id="username-error" class="invalid-feedback"></div>
     </div>
     <div class="mb-3">
         <label class="form-label" id="lblPassword">Пароль</label>
@@ -50,14 +53,19 @@
             <input type="password" id="password" class="form-control pe-5">
             <button type="button" onclick="togglePassword()" id="toggleBtn" class="btn position-absolute top-50 end-0 translate-middle-y border-0 bg-transparent text-muted me-1" style="z-index: 5;" title="Показать пароль"><i class="bi bi-eye-fill"></i></button>
         </div>
+        <div id="password-error" class="invalid-feedback"></div>
     </div>
 
     {% if mode == 'register' %}
     <div class="mb-3">
         <label class="form-label" id="lblEmail">Email</label>
         <input type="email" id="email" class="form-control" placeholder="name@gmail.com">
+        <div id="email-error" class="invalid-feedback"></div>
     </div>
     {% endif %}
+    
+    <!-- Общая ошибка -->
+    <div id="global-error" class="text-danger text-center mb-3 small" style="display: none;"></div>
 
     <button class="btn btn-primary w-100 mb-3" id="btnSubmit">
         {{ 'Войти' if mode == 'login' else 'Зарегистрироваться' }}
@@ -119,6 +127,10 @@
         }
     };
 
+    const Utils = {
+        getCsrfToken: () => document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'),
+    };
+
     const TranslationManager = {
         getLang() {
             try {
@@ -161,7 +173,30 @@
                 input.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter') this.submit();
                 });
+                // Убираем ошибку при вводе
+                input.addEventListener('input', () => {
+                    input.classList.remove('is-invalid');
+                    const errDiv = document.getElementById(input.id + '-error');
+                    if(errDiv) errDiv.style.display = 'none';
+                    document.getElementById('global-error').style.display = 'none';
+                });
             });
+        },
+
+        showError(field, message) {
+            const input = document.getElementById(field);
+            const errorDiv = document.getElementById(field + '-error');
+            if (input && errorDiv) {
+                input.classList.add('is-invalid');
+                errorDiv.innerText = message;
+                errorDiv.style.display = 'block';
+            } else {
+                const global = document.getElementById('global-error');
+                if (global) {
+                    global.innerText = message;
+                    global.style.display = 'block';
+                }
+            }
         },
 
         async submit() {
@@ -173,11 +208,17 @@
             const password = passwordEl ? passwordEl.value : '';
             let email = null;
 
-            if (!username || !password) return alert('Заполните все поля');
+            // Сброс ошибок
+            document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+            document.querySelectorAll('.invalid-feedback').forEach(el => el.style.display = 'none');
+            document.getElementById('global-error').style.display = 'none';
+
+            if (!username) return this.showError('username', 'Введите имя пользователя');
+            if (!password) return this.showError('password', 'Введите пароль');
 
             if (this.mode === 'register') {
                 email = emailEl ? emailEl.value.trim() : '';
-                if (!email) return alert('Введите Email');
+                if (!email) return this.showError('email', 'Введите Email');
             }
 
             const endpoint = this.mode === 'login' ? '/login' : '/register';
@@ -187,7 +228,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        // 'X-CSRFToken': '...' // TODO: Добавить токен при внедрении Flask-WTF
+                        'X-CSRFToken': Utils.getCsrfToken()
                     },
                     body: JSON.stringify({ username, password, email })
                 });
@@ -197,11 +238,21 @@
                 if (data.success) {
                     window.location.href = '/';
                 } else {
-                    alert(data.error || 'Ошибка сервера');
+                    // Пытаемся определить, к какому полю относится ошибка
+                    const err = (data.error || '').toLowerCase();
+                    if (err.includes('именем') || err.includes('пользовател') || err.includes('username')) {
+                        this.showError('username', data.error);
+                    } else if (err.includes('пароль') || err.includes('password')) {
+                        this.showError('password', data.error);
+                    } else if (err.includes('email') || err.includes('почт')) {
+                        this.showError('email', data.error);
+                    } else {
+                        this.showError('global', data.error || 'Ошибка сервера');
+                    }
                 }
             } catch (e) {
                 console.error(e);
-                alert('Ошибка соединения');
+                this.showError('global', 'Ошибка соединения');
             }
         }
     };

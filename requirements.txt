@@ -9,3 +9,6 @@ eventlet
 PySocks
 static-ffmpeg
 Flask-WTF
+psycopg2-binary
+pytest
+pytest-flask
