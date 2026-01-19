@@ -6,3 +6,4 @@ eventlet
 Authlib
 static-ffmpeg
 requests
+gunicorn
