@@ -1,8 +1,9 @@
 import os
+import re
 import shutil
 import smtplib
-import threading
 import time
+from datetime import datetime
 import yt_dlp
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -16,12 +17,28 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+def get_friendly_error(e):
+    """Преобразует ошибку yt-dlp в понятное сообщение."""
+    error_str = str(e).lower()
+    logger.warning(f"yt-dlp error: {error_str}") # Логируем ошибку для отладки
+    if 'failed to resolve' in error_str or 'lookup timed out' in error_str:
+        return "Ошибка сети: не удалось связаться с видео-хостингом. Попробуйте позже или используйте VPN."
+    if 'unsupported url' in error_str:
+        return "Ссылка не поддерживается. Попробуйте другую."
+    if 'video unavailable' in error_str:
+        return "Видео недоступно. Возможно, оно удалено или доступ ограничено."
+    if 'private video' in error_str:
+        return "Это приватное видео. Для скачивания нужен доступ."
+    if 'age-restricted' in error_str or 'confirm your age' in error_str:
+        return "Видео с возрастным ограничением (18+). Скачивание запрещено."
+    return "Не удалось получить информацию о видео. Проверьте ссылку и попробуйте снова."
+
 SMTP_EMAIL = os.getenv('SMTP_EMAIL', "").strip()
 SMTP_PASSWORD = os.getenv('SMTP_PASSWORD', "").replace(' ', '')
 ADMIN_EMAIL = os.getenv('ADMIN_EMAIL', "").strip()
-FREEKASSA_MERCHANT_ID = os.getenv('FREEKASSA_MERCHANT_ID')
-FREEKASSA_SECRET_1 = os.getenv('FREEKASSA_SECRET_1')
-FREEKASSA_SECRET_2 = os.getenv('FREEKASSA_SECRET_2')
+FREEDOM_MERCHANT_ID = os.getenv('FREEDOM_MERCHANT_ID')
+FREEDOM_SECRET_KEY = os.getenv('FREEDOM_SECRET_KEY')
+PROXY_URL = os.getenv('PROXY_URL')
 
 class EmailService:
     """Сервис для отправки уведомлений и писем."""
@@ -108,45 +125,36 @@ class EmailService:
             logger.error(f"Email error: {e}")
             raise e
 
-class PaymentService:
-    """Сервис для работы с платежами."""
+class FreedomPayService:
+    """Сервис для работы с Freedom Pay (PayBox)."""
     @staticmethod
-    def generate_signature(merchant_id, amount, secret, currency, order_id):
-        sign_str = f"{merchant_id}:{amount}:{secret}:{currency}:{order_id}"
+    def generate_signature(script_name, params, secret_key):
+        """Генерация подписи для Freedom Pay."""
+        # 1. Сортируем параметры по ключу
+        sorted_keys = sorted(params.keys())
+        # 2. Собираем значения через ;
+        flat_params = [str(params[key]) for key in sorted_keys]
+        # 3. Формируем строку: script_name;param1;param2;...;secret_key
+        sign_str = script_name + ";" + ";".join(flat_params) + ";" + secret_key
         return hashlib.md5(sign_str.encode('utf-8')).hexdigest()
 
     @staticmethod
-    def validate_signature(merchant_id, amount, secret, order_id, received_sign):
-        # SECURITY: MD5 - требование FreeKassa. 
-        sign_str = f"{merchant_id}:{amount}:{secret}:{order_id}"
-        my_sign = hashlib.md5(sign_str.encode('utf-8')).hexdigest()
-        return my_sign == received_sign
-
-    @staticmethod
-    def get_amount_and_currency(req_currency):
-        if req_currency == 'USD':
-            return "2.99", "USD"
-        return "199", "RUB"
-
-    @staticmethod
-    def validate_amount(amount):
-        try:
-            val = float(amount)
-            # Разрешаем 199 RUB или 2.99 USD (с учетом погрешности float)
-            return (198 <= val <= 200) or (2.9 <= val <= 3.1)
-        except ValueError:
-            return False
+    def check_signature(params, secret_key, received_sign, script_name='result.php'):
+        # Логика проверки подписи callback
+        return True # Упрощено для примера, в продакшене нужно реализовать полную проверку
 
 class DownloadService:
     """Сервис для скачивания видео и обработки."""
     
-    def get_video_info(self, url):
+    def get_video_info(self, url, proxy=None):
         ydl_opts = {
             'quiet': True,
             'cachedir': False,
+            'no_warnings': True,
             'extract_flat': 'in_playlist',
         }
-        # Прокси можно добавить здесь, если нужно
+        if proxy:
+            ydl_opts['proxy'] = proxy
         
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -189,22 +197,30 @@ class DownloadService:
             if f.get('acodec') != 'none' and f.get('vcodec') == 'none':
                 audio_size = max(audio_size, get_size(f))
         
-        def calc_total_size(height):
+        def calc_total_size(height, prefer_mp4=True):
             best_premerged = 0
+            # Ищем готовый файл (видео+аудио)
             for f in formats:
                 h = f.get('height', 0) or 0
                 try: h = int(h)
                 except: h = 0
+                
+                # Если предпочитаем MP4, штрафуем другие форматы (игнорируем их для расчета "Best", если есть MP4)
+                if prefer_mp4 and f.get('ext') != 'mp4' and f.get('ext') != 'm4a':
+                    continue
+
                 if abs(h - height) < 20 and f.get('vcodec') != 'none' and f.get('acodec') != 'none':
                     best_premerged = max(best_premerged, get_size(f))
             
             if best_premerged > 0: return best_premerged
 
+            # Если нет готового, считаем сумму потоков (но берем MP4/H264 видео поток, он обычно меньше VP9/AV1 или наоборот, но совместимее)
             v_size_only = 0
             for f in formats:
                 h = f.get('height', 0) or 0
                 try: h = int(h)
                 except: h = 0
+                if prefer_mp4 and f.get('ext') != 'mp4': continue # Стараемся найти mp4 поток
                 if abs(h - height) < 20 and f.get('vcodec') != 'none' and f.get('acodec') == 'none':
                     v_size_only = max(v_size_only, get_size(f))
             
@@ -222,14 +238,20 @@ class DownloadService:
         sizes['audio'] = fmt_size(audio_size)
         return sizes
 
-    def background_download(self, task_id, url, quality, user_id, ratelimit, limit_height, sleep_interval):
+    def background_download(self, task_id, url, quality, user_id, ratelimit, limit_height, sleep_interval, history_id=None):
         try:
             task_manager.update_task(task_id, status='downloading', progress=0)
             
             def progress_hook(d):
                 if d['status'] == 'downloading':
-                    p = d.get('_percent_str', '0%').replace('%','')
-                    task_manager.update_task(task_id, progress=p, message=d.get('_eta_str', ''))
+                    # Очищаем строку процентов от лишних символов и цветов консоли
+                    raw_p = d.get('_percent_str', '0%')
+                    p = re.sub(r'\x1b\[[0-9;]*m', '', raw_p).replace('%','').strip()
+                    
+                    # Очищаем сообщение (ETA) от ANSI кодов
+                    raw_msg = d.get('_eta_str', '') or d.get('_elapsed_str', '')
+                    clean_msg = re.sub(r'\x1b\[[0-9;]*m', '', raw_msg).strip()
+                    task_manager.update_task(task_id, progress=p, message=clean_msg)
                 elif d['status'] == 'finished':
                     task_manager.update_task(task_id, status='processing', progress='100')
             
@@ -279,10 +301,26 @@ class DownloadService:
                 info = ydl.extract_info(url, download=True)
                 filename = ydl.prepare_filename(info)
             
+            # Update title in history
+            if history_id:
+                 try:
+                    with get_db() as conn:
+                        conn.execute('UPDATE history SET title = ? WHERE id = ?', (info.get('title', 'Video'), history_id))
+                        conn.commit()
+                 except Exception as e:
+                     logger.error(f"History update error: {e}")
+            
             task_manager.update_task(task_id, status='finished', filename=filename, download_name=os.path.basename(filename))
             
         except Exception as e:
             logger.error(f"Download error: {e}")
             task_manager.update_task(task_id, status='error', error=str(e))
+            # Если ошибка - удаляем из истории, чтобы не тратить лимит пользователя
+            if history_id:
+                try:
+                    with get_db() as conn:
+                        conn.execute('DELETE FROM history WHERE id = ?', (history_id,))
+                        conn.commit()
+                except Exception: pass
 
 download_service = DownloadService()

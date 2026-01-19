@@ -1,7 +1,9 @@
-from flask import Blueprint, request, jsonify, session, redirect, url_for, render_template
+from flask import Blueprint, request, jsonify, session, redirect, url_for, render_template, send_from_directory
+import os
+import time
 from werkzeug.security import generate_password_hash, check_password_hash
 import re
-from extensions import get_db, check_limit, oauth, HAS_AUTHLIB, ADMIN_EMAIL
+from extensions import get_db, check_limit, oauth, HAS_AUTHLIB, ADMIN_EMAIL, AVATAR_FOLDER
 from models import UserRepository
 from markupsafe import escape
 from datetime import datetime
@@ -14,9 +16,9 @@ def register():
         return jsonify({'error': 'Слишком много попыток. Подождите минуту.'}), 429
 
     data = request.json
-    username = escape(data.get('username', '').strip())
+    username = data.get('username', '').strip()
     password = data.get('password')
-    email = escape(data.get('email'))
+    email = data.get('email')
     
     if not username or not password:
         return jsonify({'error': 'Заполните все поля'}), 400
@@ -30,6 +32,9 @@ def register():
     with get_db() as conn:
         if conn.execute('SELECT 1 FROM users WHERE LOWER(username) = ?', (username.lower(),)).fetchone():
             return jsonify({'error': 'Пользователь с таким именем уже существует'}), 400
+        
+        if email and conn.execute('SELECT 1 FROM users WHERE LOWER(email) = ?', (email.lower(),)).fetchone():
+            return jsonify({'error': 'Этот Email уже зарегистрирован'}), 400
 
         hashed_pw = generate_password_hash(password)
         
@@ -106,10 +111,10 @@ def google_authorize():
         if not user_info:
             return "Не удалось получить данные от Google", 400
         
-        email = escape(user_info.get('email'))
+        email = user_info.get('email')
         google_id = user_info.get('sub')
-        name = escape(user_info.get('name', email.split('@')[0]))
-        picture = escape(user_info.get('picture', ''))
+        name = user_info.get('name', email.split('@')[0])
+        picture = user_info.get('picture', '')
 
         with get_db() as conn:
             # Проверяем, есть ли пользователь с таким google_id
@@ -155,7 +160,7 @@ def complete_registration_action():
         return jsonify({'error': 'Ошибка сессии. Попробуйте войти через Google заново.'}), 400
     
     data = request.json
-    username = escape(data.get('username', '').strip())
+    username = data.get('username', '').strip()
     password = data.get('password')
     
     if not username or not password:
@@ -166,6 +171,9 @@ def complete_registration_action():
     with get_db() as conn:
         if conn.execute('SELECT 1 FROM users WHERE LOWER(username) = ?', (username.lower(),)).fetchone():
             return jsonify({'error': 'Пользователь с таким именем уже существует'}), 400
+            
+        if conn.execute('SELECT 1 FROM users WHERE LOWER(email) = ?', (google_info['email'].lower(),)).fetchone():
+            return jsonify({'error': 'Пользователь с таким Email уже существует. Попробуйте войти.'}), 400
             
         hashed_pw = generate_password_hash(password)
         
@@ -233,7 +241,7 @@ def update_profile():
         return jsonify({'error': 'Не авторизован'}), 401
     
     data = request.json
-    new_avatar = escape(data.get('avatar_url', '').strip())
+    new_avatar = data.get('avatar_url', '').strip()
     
     with get_db() as conn:
         conn.execute('UPDATE users SET avatar_url = ? WHERE id = ?', (new_avatar, session['user_id']))
@@ -266,3 +274,60 @@ def delete_account():
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'error': f"Ошибка удаления: {e}"}), 500
+
+@auth_bp.route('/avatars/<filename>')
+def uploaded_avatar(filename):
+    return send_from_directory(os.path.abspath(AVATAR_FOLDER), filename)
+
+@auth_bp.route('/upload_avatar', methods=['POST'])
+def upload_avatar():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    
+    if 'avatar' not in request.files:
+        return jsonify({'error': 'Файл не выбран'}), 400
+    
+    file = request.files['avatar']
+    if file.filename == '':
+        return jsonify({'error': 'Файл не выбран'}), 400
+        
+    if file:
+        # Проверка размера файла (макс. 2 МБ)
+        file.seek(0, os.SEEK_END)
+        file_size = file.tell()
+        file.seek(0)
+        if file_size > 2 * 1024 * 1024: # 2 МБ
+            return jsonify({'error': 'Размер файла превышает 2 МБ'}), 400
+
+        ext = os.path.splitext(file.filename)[1]
+        if ext.lower() not in ['.jpg', '.jpeg', '.png', '.gif', '.webp']:
+             return jsonify({'error': 'Разрешены только изображения'}), 400
+
+        header = file.read(512)
+        file.seek(0)
+        if not (header.startswith(b'\xff\xd8') or header.startswith(b'\x89PNG') or header.startswith(b'GIF8') or header.startswith(b'RIFF') and b'WEBP' in header):
+             return jsonify({'error': 'Недопустимый формат файла'}), 400
+
+        try:
+            with get_db() as conn:
+                old_user = conn.execute('SELECT avatar_url FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+                if old_user and old_user['avatar_url'] and '/avatars/' in old_user['avatar_url']:
+                    old_filename = old_user['avatar_url'].split('/')[-1]
+                    old_path = os.path.join(AVATAR_FOLDER, old_filename)
+                    if os.path.exists(old_path): os.remove(old_path)
+        except Exception: pass
+
+        filename = f"user_{session['user_id']}_{int(time.time())}{ext}"
+        filepath = os.path.join(AVATAR_FOLDER, filename)
+        file.save(filepath)
+        
+        avatar_url = url_for('auth.uploaded_avatar', filename=filename, _external=True)
+        
+        with get_db() as conn:
+            conn.execute('UPDATE users SET avatar_url = ? WHERE id = ?', (avatar_url, session['user_id']))
+            conn.commit()
+        
+        session['avatar_url'] = avatar_url
+        return jsonify({'success': True, 'avatar_url': avatar_url})
+        
+    return jsonify({'error': 'Ошибка загрузки'}), 500

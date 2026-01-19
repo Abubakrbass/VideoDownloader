@@ -4,6 +4,8 @@ import threading
 import uuid
 import logging
 import sqlite3
+import shutil
+import stat
 try:
     import psycopg2
     import psycopg2.extras
@@ -24,6 +26,20 @@ logger = logging.getLogger(__name__)
 
 # Environment Variables
 ADMIN_EMAIL = os.getenv('ADMIN_EMAIL', "").strip()
+
+# Folders
+DOWNLOAD_FOLDER = 'downloads'
+if not os.path.exists(DOWNLOAD_FOLDER):
+    os.makedirs(DOWNLOAD_FOLDER)
+
+AVATAR_FOLDER = 'avatars'
+if not os.path.exists(AVATAR_FOLDER):
+    os.makedirs(AVATAR_FOLDER)
+
+STATIC_FOLDER = 'static'
+if not os.path.exists(STATIC_FOLDER):
+    os.makedirs(STATIC_FOLDER)
+
 
 # SocketIO
 socketio = SocketIO(cors_allowed_origins="*")
@@ -125,6 +141,11 @@ def check_limit(limit_type='global'):
     ip = request.remote_addr
     return not limiter.is_allowed(ip, limit_type)
 
+# Функция для принудительного удаления (если файл занят или read-only)
+def remove_readonly(func, path, _):
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
+
 # Task Manager
 class TaskManager:
     def __init__(self):
@@ -174,6 +195,17 @@ class TaskManager:
             old_cache = [url for url, cache in self.info_cache.items() if current_time - cache['timestamp'] > 3600]
             for url in old_cache:
                 del self.info_cache[url]
+        
+        # Очистка файлов
+        try:
+            for filename in os.listdir(DOWNLOAD_FOLDER):
+                filepath = os.path.join(DOWNLOAD_FOLDER, filename)
+                if os.path.getmtime(filepath) < current_time - 3600:
+                    try:
+                        if os.path.isfile(filepath): os.remove(filepath)
+                        elif os.path.isdir(filepath): shutil.rmtree(filepath, onerror=remove_readonly)
+                    except Exception: pass
+        except Exception: pass
 
     def _cleanup_loop(self):
         while True:

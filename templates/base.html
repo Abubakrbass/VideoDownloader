@@ -17,17 +17,14 @@
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding-top: 40px; min-height: 100vh; display: flex; flex-direction: column; color: #e0e0e0; }
         
         .content-wrapper { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; width: 100%; padding: 20px; }
-        .brand-logo { position: absolute; top: 20px; left: 20px; z-index: 100; font-weight: 800; font-size: 1.5rem; text-decoration: none; color: #e0e0e0; font-family: 'Montserrat', sans-serif; display: flex; align-items: center; gap: 10px; }
+        .brand-logo { position: fixed; top: 20px; left: 20px; z-index: 1000; font-weight: 800; font-size: 1.5rem; text-decoration: none; color: #e0e0e0; font-family: 'Montserrat', sans-serif; display: flex; align-items: center; gap: 10px; }
         .brand-logo img { height: 40px; width: auto; }
-        .top-bar { position: absolute; top: 25px; right: 25px; z-index: 100; display: flex; align-items: center; gap: 15px; background: rgba(30, 30, 30, 0.6); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); padding: 8px 20px; border-radius: 50px; border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+        .top-bar { position: fixed; top: 25px; right: 25px; z-index: 1000; display: flex; align-items: center; gap: 15px; background: rgba(30, 30, 30, 0.6); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); padding: 8px 20px; border-radius: 50px; border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 4px 20px rgba(0,0,0,0.3); transition: all 0.3s ease; }
         .top-bar .btn { border-radius: 20px; font-weight: 600; }
         #snow-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9999; transition: transform 0.1s ease-out; }
         .snowflake { position: absolute; top: -10px; background: white; border-radius: 50%; user-select: none; pointer-events: none; animation: fall linear infinite; box-shadow: 0 0 5px rgba(255,255,255,0.8); }
         @keyframes fall { to { transform: translateY(120vh); } }
         .snow-pile { position: fixed; bottom: 0; left: 0; width: 100%; height: 15px; background: rgba(255, 255, 255, 0.6); filter: blur(8px); z-index: 9998; pointer-events: none; }
-        
-        .freekassa-corner { position: fixed; bottom: 15px; left: 15px; z-index: 9000; opacity: 0.6; transition: all 0.3s ease; transform: scale(0.85); transform-origin: bottom left; }
-        .freekassa-corner:hover { opacity: 1; transform: scale(1); }
         .form-switch .form-check-input { height: 1.5em; width: 2.5em; border-radius: 2em; background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e"); transition: background-position .15s ease-in-out, background-color .15s ease-in-out; cursor: pointer; }
         .form-switch .form-check-input:checked { background-color: #34C759; border-color: #34C759; }
         .form-switch .form-check-input:focus { box-shadow: none; }
@@ -63,6 +60,29 @@
             .top-bar { order: 2; }
             .main-card, .profile-card, .info-card, .feedback-card, .auth-card { order: 3; }
         }
+    </style>
+    <!-- Стили для боковой рекламы -->
+    <style>
+        .app-sidebar-panel {
+            position: absolute;
+            top: 150px; /* Прикрепляем к фону */
+            width: 160px;
+            height: 600px;
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: #252525; /* Отличный от фона цвет */
+            border: 1px solid #3a3a3a;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            border-radius: 12px;
+        }
+        .app-sidebar-panel { transition: transform 0.3s ease-in-out; }
+        .app-sidebar-panel:hover { transform: translateY(-50%) scale(1.02); z-index: 100; border-color: #555; }
+        .app-sidebar-left { left: 10px; }
+        .app-sidebar-right { right: 10px; }
+        @media (max-width: 900px) { .app-sidebar-panel { display: none; } }
     </style>
     {% block head_extra %}{% endblock %}
 </head>
@@ -101,28 +121,23 @@
             </div>
         </div>
 
+
         {% block content %}{% endblock %}
     </div>
 
     <!-- Подвал с ссылками -->
     <div class="container text-center">
         <div class="footer-links">
-            <a href="/about" id="footerAbout">О нас</a>
-            <a href="/privacy" id="footerPrivacy">Конфиденциальность</a>
-            <a href="/terms" id="footerTerms">Условия использования</a>
+            <a href="/about" id="footerAbout" class="text-muted mx-2 text-decoration-none">О нас</a>
+            <a href="/privacy" id="footerPrivacy" class="text-muted mx-2 text-decoration-none">Конфиденциальность</a>
+            <a href="/terms" id="footerTerms" class="text-muted mx-2 text-decoration-none">Условия использования</a>
         </div>
+        
         <div class="text-muted mt-2 small" id="footerCopyright">&copy; 2025 Video Downloader</div>
     </div>
 
     <!-- Сугроб -->
     <div class="snow-pile"></div>
-
-    <!-- Баннер FreeKassa (Аккуратно в углу) -->
-    <div class="freekassa-corner">
-        <a href="https://freekassa.net" target="_blank" rel="noopener noreferrer">
-            <img src="https://cdn.freekassa.net/banners/big-dark-2.png" title="Прием платежей" style="height: 40px; width: auto; border-radius: 8px;">
-        </a>
-    </div>
 
     <!-- Плавающая кнопка обратной связи -->
     <div class="feedback-corner">

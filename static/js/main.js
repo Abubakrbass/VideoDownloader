@@ -15,7 +15,17 @@ window.translations = {
         btnDownload: 'Сохранить файл', btnShare: 'Поделиться', btnGetPremium: 'Купить Premium', btnPremiumActive: 'Premium Активен',
         qualityBest: 'Лучшее (MP4)', quality1080: '1080p (MP4)', quality720: '720p (MP4)', qualityAudio: 'Аудио (MP3)',
         statusDownloading: 'Скачивание...', statusProcessing: 'Обработка и склеивание...', statusFinished: 'Готово!', statusError: 'Ошибка при скачивании: ',
-        searching: 'Поиск...'
+        searching: 'Поиск...', btnYes: 'Да', btnNo: 'Нет', resetSettingsConfirm: 'Сбросить все настройки и перезагрузить?',
+        currency: '₽', priceMonth: '199', priceYear: '500',
+        // Premium Cards
+        planFree: 'FREE', planMonth: 'МЕСЯЦ', planYear: 'ГОД', planFreeDesc: 'Базовый', planMonthDesc: 'На 1 месяц', planYearDesc: 'На 1 год',
+        btnCurrent: 'Текущий план', btnBuy: 'Купить', badgeBest: 'ВЫГОДНО',
+        featAds: 'Реклама на сайте', featLimit: 'Лимит 5 видео в день', featSpeed: 'Ограниченная скорость', featNoPlaylist: 'Нет скачивания плейлистов', featNoQuality: 'Нет качества 1080p/4K',
+        featNoAds: 'Отключение всей рекламы', featUnlimited: 'Безлимитное скачивание', featMaxSpeed: 'Максимальная скорость', featPlaylist: 'Скачивание плейлистов',
+        featAll: 'Всё включено', featSave: 'Экономия до 80%', featSupport: 'Приоритетная поддержка',
+        // New translations
+        limitLabel: 'Лимит на сегодня:', slowSearch: 'Медленный поиск?', buyPremFast: 'Купите Premium для ускорения!',
+        authRequiredTitle: 'Требуется вход', authRequiredText: 'Для покупки Premium необходимо войти или зарегистрироваться.'
     },
     en: {
         title: 'Download Video', searchPlaceholder: 'Paste YouTube link...', searchBtn: 'Search', howTo: '<i class="bi bi-question-circle"></i> How to use?',
@@ -31,7 +41,17 @@ window.translations = {
         btnDownload: 'Save file', btnShare: 'Share', btnGetPremium: 'Get Premium', btnPremiumActive: 'Premium Active',
         qualityBest: 'Best (MP4)', quality1080: '1080p (MP4)', quality720: '720p (MP4)', qualityAudio: 'Audio (MP3)',
         statusDownloading: 'Downloading...', statusProcessing: 'Processing and merging...', statusFinished: 'Done!', statusError: 'Download error: ',
-        searching: 'Searching...'
+        searching: 'Searching...', btnYes: 'Yes', btnNo: 'No', resetSettingsConfirm: 'Reset all settings and reload?',
+        currency: '$', priceMonth: '3', priceYear: '6',
+        // Premium Cards
+        planFree: 'FREE', planMonth: 'MONTH', planYear: 'YEAR', planFreeDesc: 'Basic', planMonthDesc: 'For 1 month', planYearDesc: 'For 1 year',
+        btnCurrent: 'Current plan', btnBuy: 'Buy', badgeBest: 'BEST VALUE',
+        featAds: 'Ads on site', featLimit: 'Limit 5 videos/day', featSpeed: 'Limited speed', featNoPlaylist: 'No playlist download', featNoQuality: 'No 1080p/4K',
+        featNoAds: 'No ads', featUnlimited: 'Unlimited downloads', featMaxSpeed: 'Max speed', featPlaylist: 'Playlist download',
+        featAll: 'All included', featSave: 'Save up to 80%', featSupport: 'Priority support',
+        // New translations
+        limitLabel: 'Limit for today:', slowSearch: 'Slow search?', buyPremFast: 'Buy Premium to speed up!',
+        authRequiredTitle: 'Login required', authRequiredText: 'You need to login or register to buy Premium.'
     },
     kg: {
         title: 'Видео Жүктөө', searchPlaceholder: 'YouTube шилтемесин коюңуз...', searchBtn: 'Издөө', howTo: '<i class="bi bi-question-circle"></i> Кантип колдонуу керек?',
@@ -47,7 +67,17 @@ window.translations = {
         btnDownload: 'Файлды сактоо', btnShare: 'Бөлүшүү', btnGetPremium: 'Premium алуу', btnPremiumActive: 'Premium Активдүү',
         qualityBest: 'Мыкты (MP4)', quality1080: '1080p (MP4)', quality720: '720p (MP4)', qualityAudio: 'Аудио (MP3)',
         statusDownloading: 'Жүктөлүүдө...', statusProcessing: 'Иштеп чыгуу жана бириктирүү...', statusFinished: 'Даяр!', statusError: 'Жүктөө катасы: ',
-        searching: 'Издөө...'
+        searching: 'Издөө...', btnYes: 'Ооба', btnNo: 'Жок', resetSettingsConfirm: 'Бардык жөндөөлөрдү тазалап, кайра жүктөйбүзбү?',
+        currency: 'сом', priceMonth: '200', priceYear: '500',
+        // Premium Cards
+        planFree: 'АКЫСЫЗ', planMonth: 'АЙ', planYear: 'ЖЫЛ', planFreeDesc: 'Жөнөкөй', planMonthDesc: '1 айга', planYearDesc: '1 жылга',
+        btnCurrent: 'Учурдагы план', btnBuy: 'Сатып алуу', badgeBest: 'ПАЙДАЛУУ',
+        featAds: 'Сайттагы жарнама', featLimit: 'Күнүнө 5 видео чектөө', featSpeed: 'Чектелген ылдамдык', featNoPlaylist: 'Плейлисттерди жүктөө жок', featNoQuality: '1080p/4K сапаты жок',
+        featNoAds: 'Жарнамасыз', featUnlimited: 'Чексиз жүктөөлөр', featMaxSpeed: 'Максималдуу ылдамдык', featPlaylist: 'Плейлисттерди толук жүктөө',
+        featAll: 'Баары камтылган', featSave: '80% га чейин үнөмдөө', featSupport: 'Биринчи кезектеги колдоо',
+        // New translations
+        limitLabel: 'Бүгүнкү чек:', slowSearch: 'Жай издөөбү?', buyPremFast: 'Тезирээк кылуу үчүн Premium алыңыз!',
+        authRequiredTitle: 'Кирүү керек', authRequiredText: 'Premium сатып алуу үчүн кириңиз же катталыңыз.'
     }
 };
 
@@ -171,7 +201,8 @@ function applySettings() {
             'footerAbout': 'footerAbout', 'footerPrivacy': 'footerPrivacy', 'footerTerms': 'footerTerms', 'footerFeedback': 'footerFeedback', 'footerCopyright': 'footerCopyright',
             'cookieText': 'cookieText', 'cookieAccept': 'cookieAccept', 'cookieReject': 'cookieReject',
             'howToContent': 'howToContent', 'lblDuration': 'lblDuration', 'lblQuality': 'lblQuality', 'btnReload': 'btnReload',
-            'historyModalTitle': 'historyModalTitle', 'notifModalTitle': 'notifModalTitle'
+            'historyModalTitle': 'historyModalTitle', 'notifModalTitle': 'notifModalTitle',
+            'txtLimitLabel': 'limitLabel', 'txtSlowSearch': 'slowSearch', 'lnkBuyPremFast': 'buyPremFast'
         };
         for (const id in elementsToTranslate) {
             const el = document.getElementById(id);
@@ -191,6 +222,29 @@ function applySettings() {
         if (premBtn) {
             premBtn.innerHTML = `<i class="bi bi-gem"></i> ${lastAuthData.isPremium ? t.btnPremiumActive : t.btnGetPremium}`;
         }
+
+        // Обновление цен на странице Premium
+        const priceMonth = document.getElementById('price-month');
+        const priceYear = document.getElementById('price-year');
+        if (priceMonth) priceMonth.innerText = t.priceMonth;
+        if (priceYear) priceYear.innerText = t.priceYear;
+        const currencySymbols = document.querySelectorAll('.currency-symbol');
+        currencySymbols.forEach(el => el.innerText = t.currency);
+
+        // Перевод карточек Premium
+        const mapId = {
+            't-planFree': 'planFree', 't-planMonth': 'planMonth', 't-planYear': 'planYear',
+            't-planFreeDesc': 'planFreeDesc', 't-planMonthDesc': 'planMonthDesc', 't-planYearDesc': 'planYearDesc',
+            't-btnCurrent': 'btnCurrent', 't-badgeBest': 'badgeBest',
+            't-featAds': 'featAds', 't-featLimit': 'featLimit', 't-featSpeed': 'featSpeed', 't-featNoPlaylist': 'featNoPlaylist', 't-featNoQuality': 'featNoQuality',
+            't-featNoAds': 'featNoAds', 't-featUnlimited': 'featUnlimited', 't-featMaxSpeed': 'featMaxSpeed', 't-featPlaylist': 'featPlaylist',
+            't-featAll': 'featAll', 't-featSave': 'featSave', 't-featSupport': 'featSupport'
+        };
+        for (const [id, key] of Object.entries(mapId)) {
+            const el = document.getElementById(id);
+            if (el) el.innerText = t[key];
+        }
+        document.querySelectorAll('.t-btnBuy').forEach(btn => btn.innerText = t.btnBuy);
     }
     toggleRelaxSound(window.appSettings.relax);
     updateAuthUI(lastAuthData.isAuth, lastAuthData.username, lastAuthData.avatarUrl, lastAuthData.isPremium);
@@ -198,15 +252,14 @@ function applySettings() {
 
 window.clearCache = function() {
     const t = window.translations[window.appSettings.lang] || window.translations['ru'];
-    const confirmMsg = window.appSettings.lang === 'ru' ? 'Сбросить все настройки и перезагрузить?' : (window.appSettings.lang === 'kg' ? 'Бардык жөндөөлөрдү тазалап, кайра жүктөйбүзбү?' : 'Reset all settings and reload?');
     
     Swal.fire({
         title: t.settingsTitle,
-        text: confirmMsg,
+        text: t.resetSettingsConfirm,
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonText: 'Да',
-        cancelButtonText: 'Нет'
+        confirmButtonText: t.btnYes,
+        cancelButtonText: t.btnNo
     }).then((result) => {
         if (result.isConfirmed) {
             localStorage.clear();
@@ -343,12 +396,17 @@ window.clearHistory = async function() {
         text: t.clearHistoryConfirm,
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonText: 'Да',
-        cancelButtonText: 'Нет'
+        confirmButtonText: t.btnYes,
+        cancelButtonText: t.btnNo
     }).then(async (result) => {
         if (result.isConfirmed) {
             try {
-                const res = await fetch('/clear_history', { method: 'POST' });
+                const res = await fetch('/clear_history', { 
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': Utils.getCsrfToken()
+                    }
+                });
                 const data = await res.json();
                 if (data.success) loadHistory();
                 else Swal.fire('Ошибка', 'Не удалось очистить историю', 'error');
@@ -367,7 +425,12 @@ window.loadNotificationHistory = async function() {
     const list = document.getElementById('notificationList');
     if(list) list.innerHTML = `<div class="text-center p-3">${t.loading}</div>`;
     
-    fetch('/mark_notifications_read', { method: 'POST' });
+    fetch('/mark_notifications_read', { 
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': Utils.getCsrfToken()
+        }
+    });
     const badge = document.getElementById('notifBadge');
     if (badge) badge.style.display = 'none';
     
@@ -421,14 +484,17 @@ window.deleteNotification = async function(id, btn) {
         text: t.deleteNotifConfirm,
         icon: 'question',
         showCancelButton: true,
-        confirmButtonText: 'Да',
-        cancelButtonText: 'Нет'
+        confirmButtonText: t.btnYes,
+        cancelButtonText: t.btnNo
     }).then(async (result) => {
         if (result.isConfirmed) {
             try {
                 await fetch('/hide_notification', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': Utils.getCsrfToken()
+                    },
                     body: JSON.stringify({ id })
                 });
                 const item = btn.closest('.list-group-item');
@@ -536,6 +602,12 @@ const VideoDownloader = {
         
         btn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> ${t.searching}`;
         btn.disabled = true;
+        
+        // Показываем сообщение о Premium при поиске
+        const searchMsg = document.getElementById('searchMessage');
+        if (searchMsg && !lastAuthData.isPremium) {
+            searchMsg.style.display = 'block';
+        }
 
         try {
             const formData = new FormData();
@@ -549,7 +621,12 @@ const VideoDownloader = {
             const data = await response.json();
 
             if (response.ok) {
-                this.renderInfo(data, url, t);
+                // Если не премиум, показываем рекламу
+                if (!lastAuthData.isPremium) {
+                    this.showAdOverlay(() => this.renderInfo(data, url, t));
+                } else {
+                    this.renderInfo(data, url, t);
+                }
             } else {
                 showToast('Ошибка: ' + data.error, true);
             }
@@ -558,7 +635,37 @@ const VideoDownloader = {
         } finally {
             btn.innerHTML = originalText;
             btn.disabled = false;
+            if (searchMsg) setTimeout(() => { searchMsg.style.display = 'none'; }, 5000); // Скрыть через 5 сек
         }
+    },
+
+    // Логика показа рекламы
+    showAdOverlay(callback) {
+        const overlay = document.getElementById('adOverlay');
+        const timerEl = document.getElementById('adTimer');
+        
+        if (!overlay) return callback();
+
+        let timeLeft = 5;
+        timerEl.innerText = timeLeft;
+        
+        overlay.classList.remove('d-none');
+        
+        this.adInterval = setInterval(() => {
+            timeLeft--;
+            timerEl.innerText = timeLeft;
+            if (timeLeft <= 0) {
+                clearInterval(this.adInterval);
+                overlay.classList.add('d-none');
+                callback();
+            }
+        }, 1000);
+        
+        this.closeAd = () => {
+            clearInterval(this.adInterval);
+            overlay.classList.add('d-none');
+            callback();
+        };
     },
 
     renderInfo(data, url, t) {
@@ -661,6 +768,7 @@ const VideoDownloader = {
             if (response.ok) {
                 this.currentTaskId = data.task_id;
                 this.trackProgress();
+                setTimeout(() => this.updateLimitUI(), 1000); // Обновляем лимит сразу после старта
             } else {
                 showToast('Ошибка старта: ' + data.error, true);
                 this.resetUI();
@@ -701,6 +809,7 @@ const VideoDownloader = {
                     if (navigator.share) document.getElementById('shareBtn').style.display = 'block';
                     document.getElementById('progress-section').style.display = 'none';
                     document.getElementById('download-section').style.display = 'block';
+                    VideoDownloader.updateLimitUI(); // Обновляем лимит
                 } else if (data.status === 'error') {
                     clearInterval(this.progressInterval);
                     showToast(t.statusError + data.error, true);
@@ -719,6 +828,33 @@ const VideoDownloader = {
             document.getElementById('download-section').style.display = 'none';
             document.getElementById('playlistContainer').style.display = 'none';
         }
+    },
+    
+    async updateLimitUI() {
+        try {
+            const res = await fetch('/get_limit_status');
+            const data = await res.json();
+            const badge = document.getElementById('limitBadge');
+            const count = document.getElementById('limitCount');
+            
+            if (count) count.innerText = `${data.count}/${data.limit}`; // Текст "Лимит..." обновляется через applySettings
+            if (badge && data.reached) {
+                badge.classList.remove('bg-secondary');
+                badge.classList.add('bg-danger');
+                
+                // Блокируем поиск
+                const searchBtn = document.getElementById('searchBtn');
+                const urlInput = document.getElementById('urlInput');
+                if(searchBtn) searchBtn.disabled = true;
+                if(urlInput) urlInput.disabled = true;
+                
+                // Показываем модальное окно
+                const limitModalEl = document.getElementById('limitModal');
+                if(limitModalEl && !limitModalEl.classList.contains('show')) {
+                    new bootstrap.Modal(limitModalEl).show();
+                }
+            }
+        } catch(e) {}
     }
 };
 
@@ -779,6 +915,42 @@ window.shareFile = async function() {
     }
 }
 
+// Функция сброса интерфейса (вместо перезагрузки)
+window.resetApp = function() {
+    document.getElementById('urlInput').value = '';
+    VideoDownloader.resetUI(true);
+    document.getElementById('searchBtn').disabled = false;
+    document.getElementById('searchBtn').innerHTML = window.translations[window.appSettings.lang].searchBtn;
+}
+
+// Функция покупки Premium
+window.buyPremium = function(plan) {
+    // Проверка авторизации перед покупкой
+    if (!lastAuthData.isAuth) {
+        const t = window.translations[window.appSettings.lang] || window.translations['ru'];
+        Swal.fire({
+            title: t.authRequiredTitle,
+            text: t.authRequiredText,
+            icon: 'info',
+            showCancelButton: true,
+            confirmButtonText: t.authLogin,
+            cancelButtonText: t.authRegister
+        }).then((result) => {
+            if (result.isConfirmed) window.location.href = '/login_page';
+            else if (result.dismiss === Swal.DismissReason.cancel) window.location.href = '/register_page';
+        });
+        return;
+    }
+
+    const lang = window.appSettings.lang;
+    let currency = 'RUB';
+    if (lang === 'kg') currency = 'KGS';
+    if (lang === 'en') currency = 'USD';
+    
+    // Перенаправление на оплату
+    window.location.href = `/buy_premium?plan=${plan}&currency=${currency}`;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     // --- ИНИЦИАЛИЗАЦИЯ ---
     loadSettings();
@@ -794,6 +966,22 @@ document.addEventListener('DOMContentLoaded', () => {
             const x = (e.clientX / window.innerWidth - 0.5) * 20;
             const y = (e.clientY / window.innerHeight - 0.5) * 20;
             snowContainer.style.transform = `translate(${x}px, ${y}px)`;
+        }
+    });
+    
+    // Скролл эффект для верхней панели
+    window.addEventListener('scroll', () => {
+        const topBar = document.querySelector('.top-bar');
+        if (topBar) {
+            if (window.scrollY > 10) {
+                topBar.classList.add('scrolled');
+                topBar.style.background = 'rgba(30, 30, 30, 0.9)';
+                topBar.style.top = '10px';
+            } else {
+                topBar.classList.remove('scrolled');
+                topBar.style.background = 'rgba(30, 30, 30, 0.6)';
+                topBar.style.top = '25px';
+            }
         }
     });
 });

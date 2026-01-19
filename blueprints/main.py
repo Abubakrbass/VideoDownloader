@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, session
+from flask import Blueprint, render_template, session, jsonify
 from models import UserRepository
 
 main_bp = Blueprint('main', __name__)
@@ -18,12 +18,10 @@ def index():
 
 @main_bp.route('/premium')
 def premium_page():
-    from app import get_db
     is_premium = False
     if 'user_id' in session:
-        with get_db() as conn:
-            user = UserRepository.get_user(session['user_id'])
-            is_premium = UserRepository.is_premium(user)
+        user = UserRepository.get_user(session['user_id'])
+        is_premium = UserRepository.is_premium(user)
     return render_template('premium.html', is_premium=is_premium)
 
 @main_bp.route('/about')
@@ -37,3 +35,17 @@ def privacy():
 @main_bp.route('/terms')
 def terms():
     return render_template('info.html', title='Условия использования', content='Используя этот сервис, вы соглашаетесь скачивать видео только для личного ознакомления.<br><br><b>Строго запрещено скачивать контент с возрастным ограничением (18+).</b><br><br>Запрещено скачивать контент, защищенный авторским правом, без разрешения владельца.<br>Мы не несем ответственности за использование скачанных материалов.', icon='file-earmark-text-fill')
+
+@main_bp.route('/get_limit_status')
+def get_limit_status():
+    if 'user_id' not in session:
+        return jsonify({'count': 0, 'limit': 5, 'reached': False})
+    
+    user = UserRepository.get_user(session['user_id'])
+    is_premium = UserRepository.is_premium(user)
+    
+    if is_premium:
+        return jsonify({'count': 0, 'limit': '∞', 'reached': False})
+        
+    count = UserRepository.check_daily_limit(session['user_id'])
+    return jsonify({'count': count, 'limit': 5, 'reached': count >= 5})

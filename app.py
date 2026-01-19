@@ -1,21 +1,16 @@
 try:
     import eventlet
-    eventlet.monkey_patch()
+    import os
+    # На Windows eventlet ломает DNS (requests), поэтому патчим только на Linux (Render)
+    if os.name != 'nt':
+        eventlet.monkey_patch()
 except ImportError:
     pass
 
 import os
-import shutil
-import stat
-import time
-import threading
-import uuid
-import re
 import logging
-from contextlib import contextmanager
 from datetime import datetime, timedelta
-from flask import Flask, render_template, request, send_file, after_this_request, jsonify, send_from_directory, session
-import yt_dlp
+from flask import Flask, render_template, request, jsonify, session
 from werkzeug.middleware.proxy_fix import ProxyFix
 from dotenv import load_dotenv
 
@@ -24,6 +19,17 @@ from extensions import (
     get_db, init_db, limiter, check_limit, task_manager,
     socketio, oauth, HAS_AUTHLIB, ADMIN_EMAIL, csrf
 )
+from models import UserRepository
+
+# Импорт блюпринтов
+from blueprints.auth import auth_bp
+from blueprints.main import main_bp
+from blueprints.payment import payment_bp
+from blueprints.feedback import feedback_bp
+from blueprints.download import download_bp
+from blueprints.history import history_bp
+from blueprints.notification import notification_bp
+from blueprints.admin import admin_bp
 
 # Настройка логирования вместо принтов
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -35,14 +41,8 @@ load_dotenv()
 # --- НАСТРОЙКА ОКРУЖЕНИЯ (FFMPEG & COOKIES) ---
 try:
     import static_ffmpeg
-    # Инициализируем синхронно, чтобы FFmpeg был гарантированно доступен перед первым запросом
-    # Это может занять несколько секунд при первом запуске, но это критично для качества
+    # Автоматически скачивает и добавляет FFmpeg в путь (нужно для Render)
     static_ffmpeg.add_paths()
-    
-    if shutil.which('ffmpeg'):
-        logger.info(f"FFmpeg found successfully at: {shutil.which('ffmpeg')}")
-    else:
-        logger.error("CRITICAL: FFmpeg NOT found even after initialization!")
 except Exception as e:
     logger.error(f"static-ffmpeg ошибка или не найден: {e}")
 
@@ -57,6 +57,16 @@ if COOKIES_CONTENT:
 
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
+app.register_blueprint(auth_bp)
+app.register_blueprint(main_bp)
+app.register_blueprint(payment_bp)
+app.register_blueprint(feedback_bp)
+app.register_blueprint(download_bp)
+app.register_blueprint(history_bp)
+app.register_blueprint(notification_bp)
+app.register_blueprint(admin_bp)
+
 socketio.init_app(app)
 
 # Включаем CSRF защиту
@@ -83,34 +93,6 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax' # Защита от CSRF
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=365) # Запоминать пользователя на 1 год
 # SESSION_COOKIE_SECURE включится автоматически на HTTPS (Render/Heroku)
 
-# Настройки FreeKassa (Ключи берутся из .env)
-FREEKASSA_MERCHANT_ID = os.getenv('FREEKASSA_MERCHANT_ID')
-FREEKASSA_SECRET_1 = os.getenv('FREEKASSA_SECRET_1')
-FREEKASSA_SECRET_2 = os.getenv('FREEKASSA_SECRET_2')
-
-# Прокси для yt-dlp (если есть)
-PROXY_URL = os.getenv('PROXY_URL')
-
-DOWNLOAD_FOLDER = 'downloads'
-if not os.path.exists(DOWNLOAD_FOLDER):
-    os.makedirs(DOWNLOAD_FOLDER)
-
-AVATAR_FOLDER = 'avatars'
-if not os.path.exists(AVATAR_FOLDER):
-    os.makedirs(AVATAR_FOLDER)
-
-STATIC_FOLDER = 'static'
-if not os.path.exists(STATIC_FOLDER):
-    os.makedirs(STATIC_FOLDER)
-STATIC_JS_FOLDER = os.path.join(STATIC_FOLDER, 'js')
-if not os.path.exists(STATIC_JS_FOLDER):
-    os.makedirs(STATIC_JS_FOLDER)
-
-# Функция для принудительного удаления (если файл занят или read-only)
-def remove_readonly(func, path, _):
-    os.chmod(path, stat.S_IWRITE)
-    func(path)
-
 # --- Проверка бана перед КАЖДЫМ запросом ---
 @app.before_request
 def check_ban_status():
@@ -135,6 +117,16 @@ def check_ban_status():
                     session.clear() # Выкидываем пользователя из сессии
                     return render_template('error.html', error_code="403", error_message=f"Ваш аккаунт заблокирован до {ban_end.strftime('%d.%m.%Y %H:%M')}"), 403
             except (ValueError, TypeError): pass
+
+# --- Context Processor (Глобальные переменные для шаблонов) ---
+@app.context_processor
+def inject_global_vars():
+    is_premium = False
+    if 'user_id' in session:
+        # Используем UserRepository для проверки
+        user = UserRepository.get_user(session['user_id'])
+        is_premium = UserRepository.is_premium(user)
+    return dict(is_premium=is_premium)
 
 if HAS_AUTHLIB and oauth:
     GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID')
@@ -194,25 +186,6 @@ def service_worker():
 @app.route('/favicon.ico')
 def favicon():
     return app.send_static_file('favicon.ico')
-
-# Blueprints
-from blueprints.main import main_bp
-from blueprints.auth import auth_bp
-from blueprints.admin import admin_bp
-from blueprints.payment import payment_bp
-from blueprints.feedback import feedback_bp
-from blueprints.download import download_bp
-from blueprints.notification import notification_bp
-from blueprints.history import history_bp
-
-app.register_blueprint(main_bp)
-app.register_blueprint(auth_bp)
-app.register_blueprint(admin_bp)
-app.register_blueprint(payment_bp)
-app.register_blueprint(feedback_bp)
-app.register_blueprint(download_bp)
-app.register_blueprint(notification_bp)
-app.register_blueprint(history_bp)
 
 if __name__ == '__main__':
     # Настройки для запуска в интернете (Render, Heroku и т.д.)

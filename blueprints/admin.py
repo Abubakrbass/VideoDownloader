@@ -1,7 +1,8 @@
 from flask import Blueprint, request, jsonify, render_template, session, redirect, url_for
-from extensions import get_db, ADMIN_EMAIL, socketio
+from extensions import get_db, ADMIN_EMAIL, socketio, AVATAR_FOLDER
 from datetime import datetime, timedelta
 import sqlite3
+import os
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 
@@ -99,6 +100,38 @@ def online_count():
     
     return jsonify({'count': online_users})
 
+@admin_bp.route('/stats')
+def stats():
+    with get_db() as conn:
+        # Статистика по дням (последние 30 дней)
+        # Используем substr для извлечения даты YYYY-MM-DD из timestamp
+        query = '''
+            SELECT substr(timestamp, 1, 10) as day, COUNT(*) as count 
+            FROM history 
+            WHERE timestamp IS NOT NULL
+            GROUP BY day 
+            ORDER BY day DESC 
+            LIMIT 30
+        '''
+        stats_data = [dict(row) for row in conn.execute(query).fetchall()]
+        
+        # Преобразуем для графика (нужен порядок по возрастанию даты)
+        chart_data = sorted(stats_data, key=lambda x: x['day']) if stats_data else []
+        
+        # Общее количество скачиваний
+        total_downloads = conn.execute('SELECT COUNT(*) FROM history').fetchone()[0]
+        
+        # Топ 10 популярных видео (по URL)
+        top_videos = conn.execute('''
+            SELECT title, url, COUNT(*) as count 
+            FROM history 
+            GROUP BY url 
+            ORDER BY count DESC 
+            LIMIT 10
+        ''').fetchall()
+        
+    return render_template('admin_stats.html', stats=stats_data, chart_data=chart_data, total_downloads=total_downloads, top_videos=top_videos)
+
 @admin_bp.route('/send_notification', methods=['POST'])
 def send_notification():
     data = request.json
@@ -134,7 +167,7 @@ def delete_user(user_id):
         if target_user and target_user['avatar_url'] and '/avatars/' in target_user['avatar_url']:
             try:
                 fname = target_user['avatar_url'].split('/')[-1]
-                fpath = os.path.join('avatars', fname)
+                fpath = os.path.join(AVATAR_FOLDER, fname)
                 if os.path.exists(fpath): os.remove(fpath)
             except Exception: pass
 
