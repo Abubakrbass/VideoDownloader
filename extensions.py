@@ -79,8 +79,13 @@ def get_db():
 def init_db():
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS users 
-                 (id SERIAL PRIMARY KEY, 
+    
+    # Определяем тип базы данных для правильного синтаксиса
+    is_sqlite = not (psycopg2 and isinstance(conn, psycopg2.extensions.connection))
+    pk_type = "INTEGER PRIMARY KEY AUTOINCREMENT" if is_sqlite else "SERIAL PRIMARY KEY"
+    
+    c.execute(f'''CREATE TABLE IF NOT EXISTS users 
+                 (id {pk_type}, 
                   username TEXT UNIQUE, 
                   password TEXT, 
                   email TEXT, 
@@ -94,8 +99,14 @@ def init_db():
     def add_column_safe(cursor, table, col_def):
         try:
             cursor.execute(f"ALTER TABLE {table} ADD COLUMN {col_def}")
-        except (sqlite3.OperationalError, psycopg2.errors.DuplicateColumn):
+        except sqlite3.OperationalError:
             pass
+        except Exception as e:
+            if psycopg2 and isinstance(e, psycopg2.errors.DuplicateColumn):
+                pass
+            else:
+                # Log or ignore other specific errors if needed, but don't crash
+                pass
 
     add_column_safe(c, 'users', 'email TEXT')
     add_column_safe(c, 'users', 'google_id TEXT')
@@ -107,10 +118,10 @@ def init_db():
     add_column_safe(c, 'users', 'last_seen TEXT')
     add_column_safe(c, 'users', 'last_read_notif_id INTEGER DEFAULT 0')
 
-    c.execute('''CREATE TABLE IF NOT EXISTS history 
-                 (id SERIAL PRIMARY KEY, user_id INTEGER, title TEXT, url TEXT, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS notifications 
-                 (id SERIAL PRIMARY KEY, message TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+    c.execute(f'''CREATE TABLE IF NOT EXISTS history 
+                 (id {pk_type}, user_id INTEGER, title TEXT, url TEXT, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+    c.execute(f'''CREATE TABLE IF NOT EXISTS notifications 
+                 (id {pk_type}, message TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
     c.execute('''CREATE TABLE IF NOT EXISTS hidden_notifications 
                  (user_id INTEGER, notification_id INTEGER)''')
     add_column_safe(c, 'notifications', 'user_id INTEGER')

@@ -7,3 +7,5 @@ Authlib
 static-ffmpeg
 requests
 gunicorn
+Flask-WTF
+psycopg2-binary

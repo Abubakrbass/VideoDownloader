@@ -1,4 +1,12 @@
 try:
+    # --- НАСТРОЙКА ОКРУЖЕНИЯ (FFMPEG) ---
+    # Запускаем ДО eventlet, чтобы избежать ошибки "blocking functions from mainloop" при скачивании
+    import static_ffmpeg
+    static_ffmpeg.add_paths()
+except Exception as e:
+    print(f"static-ffmpeg ошибка или не найден: {e}")
+
+try:
     import eventlet
     import os
     # На Windows eventlet ломает DNS (requests), поэтому патчим только на Linux (Render)
@@ -38,14 +46,6 @@ logger = logging.getLogger(__name__)
 # Загружаем переменные из файла .env
 load_dotenv()
 
-# --- НАСТРОЙКА ОКРУЖЕНИЯ (FFMPEG & COOKIES) ---
-try:
-    import static_ffmpeg
-    # Автоматически скачивает и добавляет FFmpeg в путь (нужно для Render)
-    static_ffmpeg.add_paths()
-except Exception as e:
-    logger.error(f"static-ffmpeg ошибка или не найден: {e}")
-
 # Восстановление cookies.txt из переменных окружения (для Render)
 COOKIES_CONTENT = os.getenv('COOKIES_CONTENT')
 if COOKIES_CONTENT:
@@ -74,18 +74,7 @@ csrf.init_app(app)
 
 # --- БЕЗОПАСНОСТЬ СЕССИЙ ---
 # Ключ берется из .env. Если его нет, генерируем и сохраняем в файл, чтобы сессии не слетали при перезапуске.
-app.secret_key = os.getenv('SECRET_KEY')
-if not app.secret_key:
-    secret_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'secret.key')
-    if os.path.exists(secret_path):
-        with open(secret_path, 'rb') as f:
-            app.secret_key = f.read()
-    else:
-        app.secret_key = os.urandom(24)
-        try:
-            with open(secret_path, 'wb') as f:
-                f.write(app.secret_key)
-        except: pass
+app.secret_key = os.getenv('SECRET_KEY', 'fallback_fixed_secret_key_for_render_12345')
 
 # Настройки Cookie для защиты от взлома
 app.config['SESSION_COOKIE_HTTPONLY'] = True # Защита от XSS (JS не видит куки)
