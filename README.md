@@ -40,18 +40,3 @@
 
 Сервис предназначен для скачивания видео в личных целях. Пожалуйста, соблюдайте авторские права и правила платформ.
 
-## ⚙️ Настройка (Environment Variables)
-
-Для работы всех функций (Google вход, оплата, почта) необходимо настроить переменные окружения (в файле `.env` локально или в настройках Render):
-
-```env
-SECRET_KEY=ваш_секретный_ключ
-GOOGLE_CLIENT_ID=595797415670-5bkb7grral3c8khcg3q399bojuou0ng0.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=ваш_секрет_клиента_google
-ADMIN_EMAIL=ваш_email@gmail.com
-SMTP_EMAIL=ваш_email_для_рассылки
-SMTP_PASSWORD=пароль_приложения_почты
-FREEKASSA_MERCHANT_ID=id_магазина
-FREEKASSA_SECRET_1=секрет_1
-FREEKASSA_SECRET_2=секрет_2
-```
