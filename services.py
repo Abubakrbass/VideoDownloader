@@ -31,6 +31,8 @@ def get_friendly_error(e):
         return "Это приватное видео. Для скачивания нужен доступ."
     if 'age-restricted' in error_str or 'confirm your age' in error_str:
         return "Видео с возрастным ограничением (18+). Скачивание запрещено."
+    if 'sign in to confirm' in error_str or 'not a bot' in error_str:
+        return "YouTube требует проверку 'Я не робот'. Сервер временно ограничен. Попробуйте позже."
     return "Не удалось получить информацию о видео. Проверьте ссылку и попробуйте снова."
 
 SMTP_EMAIL = os.getenv('SMTP_EMAIL', "").strip()
