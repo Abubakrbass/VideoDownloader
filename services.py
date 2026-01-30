@@ -155,6 +155,10 @@ class DownloadService:
         }
         if proxy:
             ydl_opts['proxy'] = proxy
+
+        # Добавляем cookies если они есть, чтобы обойти проверку "я не робот"
+        if os.path.exists('cookies.txt'):
+            ydl_opts['cookiefile'] = 'cookies.txt'
         
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -268,6 +272,10 @@ class DownloadService:
             # Если нашли FFmpeg, указываем путь к нему (критично для Render/Windows)
             if ffmpeg_path:
                 ydl_opts['ffmpeg_location'] = ffmpeg_path
+
+            # Добавляем cookies если они есть
+            if os.path.exists('cookies.txt'):
+                ydl_opts['cookiefile'] = 'cookies.txt'
 
             # Оптимизация для Premium (ускорение)
             if not ratelimit:
