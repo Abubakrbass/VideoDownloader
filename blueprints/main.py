@@ -1,5 +1,7 @@
 from flask import Blueprint, render_template, session, jsonify
 from models import UserRepository
+from extensions import get_db
+from datetime import datetime
 
 main_bp = Blueprint('main', __name__)
 
@@ -12,7 +14,10 @@ def index():
         user = UserRepository.get_user(session['user_id'])
         is_premium = UserRepository.is_premium(user)
         if user and not is_premium:
-            downloads_today = UserRepository.check_daily_limit(session['user_id'])
+            with get_db() as conn:
+                today_str = datetime.now().strftime('%Y-%m-%d')
+                downloads_today = conn.execute("SELECT COUNT(*) FROM history WHERE user_id = ? AND timestamp LIKE ?", (session['user_id'], f'{today_str}%')).fetchone()[0]
+            
             if downloads_today >= 5: limit_reached = True
     return render_template('index.html', downloads_today=downloads_today, limit_reached=limit_reached, is_premium=is_premium)
 
@@ -47,5 +52,8 @@ def get_limit_status():
     if is_premium:
         return jsonify({'count': 0, 'limit': '∞', 'reached': False})
         
-    count = UserRepository.check_daily_limit(session['user_id'])
+    with get_db() as conn:
+        today_str = datetime.now().strftime('%Y-%m-%d')
+        count = conn.execute("SELECT COUNT(*) FROM history WHERE user_id = ? AND timestamp LIKE ?", (session['user_id'], f'{today_str}%')).fetchone()[0]
+        
     return jsonify({'count': count, 'limit': 5, 'reached': count >= 5})

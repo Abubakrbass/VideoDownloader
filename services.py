@@ -322,5 +322,5 @@ class DownloadService:
                         conn.execute('DELETE FROM history WHERE id = ?', (history_id,))
                         conn.commit()
                 except Exception: pass
-
+                
 download_service = DownloadService()

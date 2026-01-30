@@ -17,7 +17,12 @@ def get_info():
             user = UserRepository.get_user(session['user_id'])
             is_premium = UserRepository.is_premium(user)
             if user and not is_premium:
-                if UserRepository.check_daily_limit(session['user_id']) >= 5:
+                # Проверка лимита вручную для надежности (совпадение с форматом записи)
+                with get_db() as conn:
+                    today_str = datetime.now().strftime('%Y-%m-%d')
+                    count = conn.execute("SELECT COUNT(*) FROM history WHERE user_id = ? AND timestamp LIKE ?", (session['user_id'], f'{today_str}%')).fetchone()[0]
+
+                if count >= 5:
                     return jsonify({'error': 'Дневной лимит (5/5) исчерпан. Обновитесь до Premium!'}), 403
 
         # Проверяем лимит запросов только для обычных пользователей
@@ -119,7 +124,12 @@ def start_download():
         if 'user_id' not in session:
             return jsonify({'error': 'Для скачивания войдите в аккаунт (лимит 5 видео в день).'}), 401
             
-        if UserRepository.check_daily_limit(session['user_id']) >= 5:
+        # Проверка лимита вручную для надежности
+        with get_db() as conn:
+            today_str = datetime.now().strftime('%Y-%m-%d')
+            count = conn.execute("SELECT COUNT(*) FROM history WHERE user_id = ? AND timestamp LIKE ?", (session['user_id'], f'{today_str}%')).fetchone()[0]
+
+        if count >= 5:
             return jsonify({'error': 'Дневной лимит исчерпан (5/5). Купите Premium для безлимита!'}), 403
         
         if 'list=' in video_url:
@@ -153,7 +163,7 @@ def start_download():
 
     # Запускаем скачивание в отдельном потоке, чтобы не блокировать интерфейс
     thread = threading.Thread(target=download_service.background_download, args=(task_id, video_url, quality, user_id, ratelimit, limit_height, sleep_interval, history_id))
-    thread.start()
+    thread.start() 
     
     return jsonify({'task_id': task_id})
 
