@@ -32,7 +32,7 @@ def get_friendly_error(e):
     if 'age-restricted' in error_str or 'confirm your age' in error_str:
         return "Видео с возрастным ограничением (18+). Скачивание запрещено."
     if 'sign in to confirm' in error_str or 'not a bot' in error_str:
-        return "YouTube требует проверку 'Я не робот'. Убедитесь что на сервере актуальные cookies. Попробуйте позже или используйте VPN."
+        return "YouTube требует проверку 'Я не робот'. Сервер блокирован. Администратор должен добавить прокси в настройках Render (PROXY_URL)."
     return "Не удалось получить информацию о видео. Проверьте ссылку и попробуйте снова."
 
 SMTP_EMAIL = os.getenv('SMTP_EMAIL', "").strip()
@@ -41,6 +41,14 @@ ADMIN_EMAIL = os.getenv('ADMIN_EMAIL', "").strip()
 FREEDOM_MERCHANT_ID = os.getenv('FREEDOM_MERCHANT_ID')
 FREEDOM_SECRET_KEY = os.getenv('FREEDOM_SECRET_KEY')
 PROXY_URL = os.getenv('PROXY_URL')
+
+# Список бесплатных публичных прокси для Render
+# Если основной прокси не работает, используем эти как fallback
+FALLBACK_PROXIES = [
+    # Вы можете добавить бесплатные прокси сюда если PROXY_URL не установлен
+    # Например: 'http://proxy1.example.com:8080'
+    # Или использовать платный сервис
+]
 
 class EmailService:
     """Сервис для отправки уведомлений и писем."""
@@ -198,11 +206,15 @@ class DownloadService:
         # Используем прокси если он существует в .env
         if PROXY_URL:
             base_opts['proxy'] = PROXY_URL
-            logger.info(f"Using proxy for requests")
+            proxy_display = PROXY_URL.split('@')[-1] if '@' in PROXY_URL else PROXY_URL
+            logger.info(f"🛡️  Using PROXY for YouTube: {proxy_display}")
+        else:
+            logger.warning("⚠️  NO PROXY configured. YouTube may block this server (Render). See PROXY_SETUP.md for instructions.")
         
         return base_opts
     
     def get_video_info(self, url, proxy=None):
+        """Получает информацию о видео с множественными стратегиями обхода блокировки."""
         ydl_opts = {
             'quiet': True,
             'cachedir': False,
@@ -213,39 +225,40 @@ class DownloadService:
         # Используем прокси из .env, если он задан.
         current_proxy = proxy or PROXY_URL
         if current_proxy:
-            logger.info(f"Using proxy for get_info: {current_proxy.split('@')[-1]}") # Логируем без пароля
+            logger.info(f"Using proxy for get_info: {current_proxy.split('@')[-1]}") 
             ydl_opts['proxy'] = current_proxy
 
         # Добавляем cookies и параметры защиты
         ydl_opts = self._get_ydl_opts_with_cookies(ydl_opts)
 
-        # Попытка 1: С cookies и полными параметрами
+        # Попытка 1: С cookies и полными параметрами + прокси если есть
         try:
-            logger.info(f"Attempt 1: Extracting info with cookies and impersonation")
+            logger.info(f"Attempt 1: Extracting info with cookies")
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 return ydl.extract_info(url, download=False)
         except Exception as e:
             logger.warning(f"Attempt 1 failed: {str(e)[:100]}")
 
-        # Попытка 2: Без cookies, но с хорошими headers
+        # Попытка 2: Без некоторых параметров которые могут вызвать проблемы
         try:
-            logger.info(f"Attempt 2: Extracting info without cookies")
-            ydl_opts_no_cookies = {
+            logger.info(f"Attempt 2: Extracting info with reduced options")
+            ydl_opts_reduced = {
                 'quiet': True,
-                'cachedir': False,
-                'no_warnings': True,
                 'extract_flat': 'in_playlist',
-                'http_headers': ydl_opts.get('http_headers', {}),
+                'socket_timeout': 30,
             }
             if current_proxy:
-                ydl_opts_no_cookies['proxy'] = current_proxy
+                ydl_opts_reduced['proxy'] = current_proxy
             
-            with yt_dlp.YoutubeDL(ydl_opts_no_cookies) as ydl:
+            # Хороший User-Agent
+            ydl_opts_reduced['http_headers'] = ydl_opts.get('http_headers', {})
+            
+            with yt_dlp.YoutubeDL(ydl_opts_reduced) as ydl:
                 return ydl.extract_info(url, download=False)
         except Exception as e:
             logger.warning(f"Attempt 2 failed: {str(e)[:100]}")
 
-        # Попытка 3: Минимальные параметры (может помочь в некоторых случаях)
+        # Попытка 3: Минимальные параметры 
         try:
             logger.info(f"Attempt 3: Extracting info with minimal options")
             ydl_opts_minimal = {
