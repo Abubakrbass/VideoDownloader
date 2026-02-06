@@ -1,24 +1,26 @@
-# Python
+# Папки с кэшем и временными файлами Python
 __pycache__/
 *.pyc
+
+# Виртуальное окружение
 venv/
 env/
 
-# Environment variables and secrets (ВАЖНО!)
+# Файл с секретными ключами (API, пароли и т.д.)
+# ОЧЕНЬ ВАЖНО: Этот файл никогда не должен попасть на GitHub!
 .env
-secret.key
+
+# База данных SQLite
+database.db
+*.sqlite
+*.sqlite3
+
+# Файл с куки для yt-dlp (содержит секреты!)
 cookies.txt
 
-# Database
-instance/
-*.db
-*.sqlite
-
-# Downloads and User Content
+# Папки для загруженных пользователями файлов
 downloads/
 avatars/
 
-# IDE
-.vscode/
-.idea/
-.DS_Store
+# Папка instance, которую может создавать Flask
+instance/

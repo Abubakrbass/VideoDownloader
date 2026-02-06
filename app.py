@@ -50,10 +50,9 @@ load_dotenv()
 COOKIES_CONTENT = os.getenv('COOKIES_CONTENT')
 if COOKIES_CONTENT:
     cookies_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cookies.txt')
-    # Создаем файл, если его нет
-    if not os.path.exists(cookies_path):
-        with open(cookies_path, 'w', encoding='utf-8') as f:
-            f.write(COOKIES_CONTENT)
+    # Всегда перезаписываем файл, чтобы использовать актуальные куки из ENV
+    with open(cookies_path, 'w', encoding='utf-8') as f:
+        f.write(COOKIES_CONTENT)
 
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)

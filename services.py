@@ -158,9 +158,11 @@ class DownloadService:
         if proxy:
             ydl_opts['proxy'] = proxy
 
+        # Абсолютный путь к cookies.txt
+        cookies_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cookies.txt')
         # Добавляем cookies если они есть, чтобы обойти проверку "я не робот"
-        if os.path.exists('cookies.txt'):
-            ydl_opts['cookiefile'] = 'cookies.txt'
+        if os.path.exists(cookies_path):
+            ydl_opts['cookiefile'] = cookies_path
         
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -275,9 +277,11 @@ class DownloadService:
             if ffmpeg_path:
                 ydl_opts['ffmpeg_location'] = ffmpeg_path
 
+            # Абсолютный путь к cookies.txt
+            cookies_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cookies.txt')
             # Добавляем cookies если они есть
-            if os.path.exists('cookies.txt'):
-                ydl_opts['cookiefile'] = 'cookies.txt'
+            if os.path.exists(cookies_path):
+                ydl_opts['cookiefile'] = cookies_path
 
             # Оптимизация для Premium (ускорение)
             if not ratelimit:
@@ -325,6 +329,7 @@ class DownloadService:
         except Exception as e:
             logger.error(f"Download error: {e}")
             task_manager.update_task(task_id, status='error', error=str(e))
+            task_manager.update_task(task_id, status='error', error=get_friendly_error(e))
             # Если ошибка - удаляем из истории, чтобы не тратить лимит пользователя
             if history_id:
                 try:
