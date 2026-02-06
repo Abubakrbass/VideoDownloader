@@ -32,7 +32,7 @@ def get_friendly_error(e):
     if 'age-restricted' in error_str or 'confirm your age' in error_str:
         return "Видео с возрастным ограничением (18+). Скачивание запрещено."
     if 'sign in to confirm' in error_str or 'not a bot' in error_str:
-        return "YouTube требует проверку 'Я не робот'. Сервер временно ограничен. Попробуйте позже."
+        return "YouTube требует проверку 'Я не робот'. Убедитесь что на сервере актуальные cookies. Попробуйте позже или используйте VPN."
     return "Не удалось получить информацию о видео. Проверьте ссылку и попробуйте снова."
 
 SMTP_EMAIL = os.getenv('SMTP_EMAIL', "").strip()
@@ -148,6 +148,32 @@ class FreedomPayService:
 class DownloadService:
     """Сервис для скачивания видео и обработки."""
     
+    def _get_ydl_opts_with_cookies(self, base_opts):
+        """Добавляет cookies и параметры для обхода проверки 'я не робот'."""
+        # Абсолютный путь к cookies.txt
+        cookies_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cookies.txt')
+        
+        # Добавляем cookies если они есть
+        if os.path.exists(cookies_path):
+            base_opts['cookiefile'] = cookies_path
+            logger.info(f"Using cookies file: {cookies_path}")
+        
+        # Добавляем параметры для обхода защиты YouTube
+        base_opts['extractor_args'] = {
+            'youtube': {
+                'skip_unavailable_videos': True,
+                'lang': ['en']
+            }
+        }
+        
+        # User-Agent для обхода блокировок
+        base_opts['user_agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        
+        # Добавляем небольшую задержку между запросами (помогает избежать блокировки)
+        base_opts['socket_timeout'] = 30
+        
+        return base_opts
+    
     def get_video_info(self, url, proxy=None):
         ydl_opts = {
             'quiet': True,
@@ -161,19 +187,26 @@ class DownloadService:
         if current_proxy:
             logger.info(f"Using proxy for get_info: {current_proxy.split('@')[-1]}") # Логируем без пароля
             ydl_opts['proxy'] = current_proxy
-        # Абсолютный путь к cookies.txt
-        cookies_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cookies.txt')
-        # Добавляем cookies если они есть, чтобы обойти проверку "я не робот"
-        if os.path.exists(cookies_path):
-            logger.info(f"Using cookies file for get_info: {cookies_path}")
-            ydl_opts['cookiefile'] = cookies_path
+
+        # Добавляем cookies и параметры защиты
+        ydl_opts = self._get_ydl_opts_with_cookies(ydl_opts)
 
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 return ydl.extract_info(url, download=False)
-        except Exception:
-            if 'extractor_args' in ydl_opts: del ydl_opts['extractor_args']
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        except Exception as e:
+            logger.warning(f"First attempt failed: {e}. Trying without cookies...")
+            # Резервный вариант: пробуем без cookies, может помочь
+            ydl_opts_fallback = {
+                'quiet': True,
+                'cachedir': False,
+                'no_warnings': True,
+                'extract_flat': 'in_playlist',
+            }
+            if current_proxy:
+                ydl_opts_fallback['proxy'] = current_proxy
+            
+            with yt_dlp.YoutubeDL(ydl_opts_fallback) as ydl:
                 return ydl.extract_info(url, download=False)
 
     def calculate_sizes(self, info, is_premium=False):
@@ -286,12 +319,8 @@ class DownloadService:
                 logger.info(f"Using proxy for download: {PROXY_URL.split('@')[-1]}") # Логируем без пароля
                 ydl_opts['proxy'] = PROXY_URL
 
-            # Абсолютный путь к cookies.txt
-            cookies_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cookies.txt')
-            # Добавляем cookies если они есть
-            if os.path.exists(cookies_path):
-                logger.info(f"Using cookies file for download: {cookies_path}")
-                ydl_opts['cookiefile'] = cookies_path
+            # Добавляем cookies и параметры защиты
+            ydl_opts = self._get_ydl_opts_with_cookies(ydl_opts)
 
             # Оптимизация для Premium (ускорение)
             if not ratelimit:
