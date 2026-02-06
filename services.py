@@ -153,24 +153,52 @@ class DownloadService:
         # Абсолютный путь к cookies.txt
         cookies_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cookies.txt')
         
-        # Добавляем cookies если они есть
+        # Добавляем cookies если они есть и содержат данные
         if os.path.exists(cookies_path):
-            base_opts['cookiefile'] = cookies_path
-            logger.info(f"Using cookies file: {cookies_path}")
+            try:
+                with open(cookies_path, 'r') as f:
+                    content = f.read()
+                    # Проверяем есть ли реальные cookies (не только комментарии)
+                    cookie_lines = [l for l in content.split('\n') if l.strip() and not l.startswith('#')]
+                    if len(cookie_lines) > 3:
+                        base_opts['cookiefile'] = cookies_path
+                        logger.info(f"Using cookies file with {len(cookie_lines)} cookies")
+            except Exception as e:
+                logger.warning(f"Could not read cookies file: {e}")
         
-        # Добавляем параметры для обхода защиты YouTube
+        # Агрессивные параметры для обхода защиты YouTube
         base_opts['extractor_args'] = {
             'youtube': {
                 'skip_unavailable_videos': True,
-                'lang': ['en']
+                'lang': ['en'],
+                'player_skip': ['android']  # Избегаем использования Android player
             }
         }
         
-        # User-Agent для обхода блокировок
-        base_opts['user_agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        # Хороший User-Agent (актуальный на 2026 год)
+        base_opts['http_headers'] = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0',
+            'Accept-Language': 'en-US,en;q=0.9,ru;q=0.8',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Cache-Control': 'max-age=0'
+        }
         
-        # Добавляем небольшую задержку между запросами (помогает избежать блокировки)
+        # Параметры для обхода проверки и оптимизации
         base_opts['socket_timeout'] = 30
+        base_opts['retries'] = 3  # Количество повторных попыток
+        base_opts['fragment_retries'] = 3  # Повторы для фрагментов
+        base_opts['http_chunks'] = True
+        
+        # Используем прокси если он существует в .env
+        if PROXY_URL:
+            base_opts['proxy'] = PROXY_URL
+            logger.info(f"Using proxy for requests")
         
         return base_opts
     
@@ -191,23 +219,47 @@ class DownloadService:
         # Добавляем cookies и параметры защиты
         ydl_opts = self._get_ydl_opts_with_cookies(ydl_opts)
 
+        # Попытка 1: С cookies и полными параметрами
         try:
+            logger.info(f"Attempt 1: Extracting info with cookies and impersonation")
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 return ydl.extract_info(url, download=False)
         except Exception as e:
-            logger.warning(f"First attempt failed: {e}. Trying without cookies...")
-            # Резервный вариант: пробуем без cookies, может помочь
-            ydl_opts_fallback = {
+            logger.warning(f"Attempt 1 failed: {str(e)[:100]}")
+
+        # Попытка 2: Без cookies, но с хорошими headers
+        try:
+            logger.info(f"Attempt 2: Extracting info without cookies")
+            ydl_opts_no_cookies = {
                 'quiet': True,
                 'cachedir': False,
                 'no_warnings': True,
                 'extract_flat': 'in_playlist',
+                'http_headers': ydl_opts.get('http_headers', {}),
             }
             if current_proxy:
-                ydl_opts_fallback['proxy'] = current_proxy
+                ydl_opts_no_cookies['proxy'] = current_proxy
             
-            with yt_dlp.YoutubeDL(ydl_opts_fallback) as ydl:
+            with yt_dlp.YoutubeDL(ydl_opts_no_cookies) as ydl:
                 return ydl.extract_info(url, download=False)
+        except Exception as e:
+            logger.warning(f"Attempt 2 failed: {str(e)[:100]}")
+
+        # Попытка 3: Минимальные параметры (может помочь в некоторых случаях)
+        try:
+            logger.info(f"Attempt 3: Extracting info with minimal options")
+            ydl_opts_minimal = {
+                'quiet': True,
+                'extract_flat': 'in_playlist',
+            }
+            if current_proxy:
+                ydl_opts_minimal['proxy'] = current_proxy
+            
+            with yt_dlp.YoutubeDL(ydl_opts_minimal) as ydl:
+                return ydl.extract_info(url, download=False)
+        except Exception as e:
+            logger.error(f"All attempts failed. Last error: {e}")
+            raise e
 
     def calculate_sizes(self, info, is_premium=False):
         formats = info.get('formats', [])
