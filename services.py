@@ -155,15 +155,19 @@ class DownloadService:
             'no_warnings': True,
             'extract_flat': 'in_playlist',
         }
-        if proxy:
-            ydl_opts['proxy'] = proxy
 
+        # Используем прокси из .env, если он задан.
+        current_proxy = proxy or PROXY_URL
+        if current_proxy:
+            logger.info(f"Using proxy for get_info: {current_proxy.split('@')[-1]}") # Логируем без пароля
+            ydl_opts['proxy'] = current_proxy
         # Абсолютный путь к cookies.txt
         cookies_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cookies.txt')
         # Добавляем cookies если они есть, чтобы обойти проверку "я не робот"
         if os.path.exists(cookies_path):
+            logger.info(f"Using cookies file for get_info: {cookies_path}")
             ydl_opts['cookiefile'] = cookies_path
-        
+
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 return ydl.extract_info(url, download=False)
@@ -277,10 +281,16 @@ class DownloadService:
             if ffmpeg_path:
                 ydl_opts['ffmpeg_location'] = ffmpeg_path
 
+            # Используем прокси из .env, если он задан.
+            if PROXY_URL:
+                logger.info(f"Using proxy for download: {PROXY_URL.split('@')[-1]}") # Логируем без пароля
+                ydl_opts['proxy'] = PROXY_URL
+
             # Абсолютный путь к cookies.txt
             cookies_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cookies.txt')
             # Добавляем cookies если они есть
             if os.path.exists(cookies_path):
+                logger.info(f"Using cookies file for download: {cookies_path}")
                 ydl_opts['cookiefile'] = cookies_path
 
             # Оптимизация для Premium (ускорение)
